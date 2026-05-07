@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>donaldraph.me</title>
+  <meta name="description" content="The lightweight version of me — what I do, how I think, and a few things I find interesting." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,600;1,400&family=Unbounded:wght@400;700;900&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #060608;
+      --bg2: #0d0d12;
+      --green: #00ff88;
+      --pink: #ff2d78;
+      --cyan: #00cfff;
+      --yellow: #ffe033;
+      --text: #c8c8d8;
+      --text-dim: #555568;
+      --border: rgba(255,255,255,0.07);
+      --mono: 'IBM Plex Mono', monospace;
+      --display: 'Unbounded', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--mono);
+      min-height: 100vh;
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    .cursor {
+      position: fixed;
+      width: 10px; height: 10px;
+      background: var(--green);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9999;
+      transition: transform 0.1s ease;
+      mix-blend-mode: screen;
+      transform: translate(-50%, -50%);
+    }
+    .cursor-ring {
+      position: fixed;
+      width: 32px; height: 32px;
+      border: 1px solid var(--green);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9998;
+      mix-blend-mode: screen;
+      opacity: 0.5;
+      transform: translate(-50%, -50%);
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,255,136,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,255,136,0.025) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* HERO */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 80px 0 60px;
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-bottom: 48px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      opacity: 0;
+      animation: fadeUp 0.6s ease 0.2s forwards;
+    }
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .hero-layout {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 48px;
+      align-items: center;
+      opacity: 0;
+      animation: fadeUp 0.7s ease 0.4s forwards;
+    }
+
+    .hero-name {
+      font-family: var(--display);
+      font-size: clamp(42px, 8vw, 80px);
+      font-weight: 900;
+      line-height: 0.95;
+      letter-spacing: -0.03em;
+    }
+    .hero-name .line1 { display: block; color: var(--text); }
+    .hero-name .line2 {
+      display: block;
+      color: transparent;
+      -webkit-text-stroke: 1.5px var(--green);
+      position: relative;
+    }
+    .hero-name .line2::after {
+      content: attr(data-text);
+      position: absolute;
+      left: 3px; top: 3px;
+      color: transparent;
+      -webkit-text-stroke: 1.5px var(--pink);
+      opacity: 0.35;
+      animation: glitch 4s infinite;
+    }
+    @keyframes glitch {
+      0%,90%,100%{transform:translate(0);opacity:0.35}
+      91%{transform:translate(-3px,1px);opacity:0.6}
+      93%{transform:translate(3px,-1px);opacity:0.2}
+      95%{transform:translate(-2px,2px);opacity:0.5}
+    }
+
+    .avatar-wrap { position: relative; width: 140px; flex-shrink: 0; }
+    .avatar {
+      width: 140px; height: 140px;
+      border-radius: 4px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--display);
+      font-size: 36px;
+      font-weight: 900;
+      color: var(--green);
+      overflow: hidden;
+      position: relative;
+    }
+    .avatar::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, transparent 60%, rgba(0,255,136,0.08));
+    }
+    .avatar img { width:100%; height:100%; object-fit:cover; display:none; }
+    .avatar img.loaded { display:block; }
+    .corner { position:absolute; width:18px; height:18px; border-color:var(--green); border-style:solid; }
+    .corner.tl { top:-5px; left:-5px; border-width:2px 0 0 2px; }
+    .corner.br { bottom:-5px; right:-5px; border-width:0 2px 2px 0; }
+
+    .hero-tagline {
+      margin-top: 24px;
+      font-size: 13px;
+      color: var(--text-dim);
+      line-height: 1.8;
+      max-width: 520px;
+      opacity: 0;
+      animation: fadeUp 0.7s ease 0.6s forwards;
+    }
+    .hero-tagline .hi { color: var(--cyan); font-style: italic; }
+
+    .typewriter-wrap {
+      margin-top: 40px;
+      opacity: 0;
+      animation: fadeUp 0.7s ease 0.8s forwards;
+    }
+    .tw-label { font-size:10px; color:var(--text-dim); letter-spacing:0.15em; text-transform:uppercase; margin-bottom:8px; }
+    .tw-line { font-size:15px; color:var(--green); min-height:24px; }
+    .tw-line::after { content:'▮'; animation:blink 1s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* DIVIDER */
+    .divider {
+      display:flex; align-items:center; gap:16px;
+      margin: 64px 0 36px;
+    }
+    .divider-label { font-size:10px; letter-spacing:0.2em; text-transform:uppercase; color:var(--text-dim); white-space:nowrap; }
+    .divider-line { flex:1; height:1px; background:var(--border); }
+    .divider-num { font-size:10px; color:var(--text-dim); }
+
+    /* DOING GRID */
+    .doing-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:2px; margin-bottom:60px; }
+    .doing-card {
+      background:var(--bg2); border:1px solid var(--border);
+      padding:24px 20px; position:relative; overflow:hidden;
+      transition:border-color 0.2s ease; cursor:none;
+    }
+    .doing-card:hover { border-color:rgba(255,255,255,0.15); }
+    .doing-accent {
+      position:absolute; top:0; left:0; right:0; height:2px;
+      opacity:0; transition:opacity 0.2s ease;
+    }
+    .doing-card:hover .doing-accent { opacity:1; }
+    .c1 .doing-accent,.c5 .doing-accent { background:var(--green); }
+    .c2 .doing-accent { background:var(--pink); }
+    .c3 .doing-accent { background:var(--cyan); }
+    .c4 .doing-accent { background:var(--yellow); }
+    .c6 .doing-accent { background:var(--pink); }
+    .doing-icon { font-size:22px; margin-bottom:12px; display:block; }
+    .doing-title {
+      font-family:var(--display); font-size:10px; font-weight:700;
+      letter-spacing:0.1em; text-transform:uppercase; margin-bottom:8px;
+    }
+    .c1 .doing-title,.c5 .doing-title { color:var(--green); }
+    .c2 .doing-title { color:var(--pink); }
+    .c3 .doing-title { color:var(--cyan); }
+    .c4 .doing-title { color:var(--yellow); }
+    .c6 .doing-title { color:var(--pink); }
+    .doing-desc { font-size:11px; color:var(--text-dim); line-height:1.6; }
+
+    /* QUOTES */
+    .quote-box {
+      background:var(--bg2); border:1px solid var(--border);
+      border-left:3px solid var(--pink); padding:32px 36px;
+      position:relative; min-height:120px;
+    }
+    .q-mark {
+      font-family:var(--display); font-size:72px;
+      color:var(--pink); opacity:0.1; line-height:1;
+      position:absolute; top:8px; left:18px;
+    }
+    .q-text {
+      font-size:15px; line-height:1.8; color:var(--text);
+      font-style:italic; position:relative; z-index:1;
+      transition:opacity 0.3s ease;
+    }
+    .q-meta {
+      margin-top:20px; font-size:11px; color:var(--text-dim);
+      display:flex; justify-content:space-between; align-items:center;
+    }
+    .q-nav { display:flex; gap:8px; }
+    .q-btn {
+      background:none; border:1px solid var(--border);
+      color:var(--text-dim); font-family:var(--mono);
+      font-size:11px; padding:4px 12px; cursor:none;
+      transition:all 0.2s ease;
+    }
+    .q-btn:hover { border-color:var(--pink); color:var(--pink); }
+
+    /* LINKS */
+    .links-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:2px; margin-bottom:80px; }
+    .link-card {
+      display:flex; flex-direction:column; align-items:center;
+      justify-content:center; gap:10px; padding:28px 16px;
+      background:var(--bg2); border:1px solid var(--border);
+      text-decoration:none; color:var(--text-dim); font-size:10px;
+      letter-spacing:0.12em; text-transform:uppercase;
+      transition:all 0.2s ease; position:relative; overflow:hidden;
+    }
+    .link-card svg { transition:transform 0.2s ease; }
+    .link-card:hover svg { transform:scale(1.15); }
+    .link-card.gh:hover { border-color:var(--green); color:var(--green); }
+    .link-card.li:hover { border-color:var(--cyan); color:var(--cyan); }
+    .link-card.dt:hover { border-color:var(--pink); color:var(--pink); }
+    .link-card.yt:hover { border-color:var(--yellow); color:var(--yellow); }
+
+    /* FOOTER */
+    .footer {
+      border-top:1px solid var(--border);
+      padding:32px 0; display:flex;
+      justify-content:space-between; align-items:center;
+      font-size:10px; color:var(--text-dim);
+      letter-spacing:0.08em;
+    }
+
+    /* ANIMATIONS */
+    @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+
+    .reveal { opacity:0; transform:translateY(16px); transition:opacity 0.6s ease, transform 0.6s ease; }
+    .reveal.visible { opacity:1; transform:none; }
+
+    /* RESPONSIVE */
+    @media(max-width:640px){
+      .hero-layout { grid-template-columns:1fr; }
+      .avatar-wrap { display:none; }
+      .doing-grid { grid-template-columns:1fr 1fr; }
+      .links-grid { grid-template-columns:1fr 1fr; }
+      .footer { flex-direction:column; gap:12px; text-align:center; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+
+<div class="container">
+
+  <section class="hero">
+    <div class="status-bar">
+      <span class="status-dot"></span>
+      <span>Available for opportunities</span>
+      <span>—</span>
+      <span>Anambra, Nigeria</span>
+    </div>
+
+    <div class="hero-layout">
+      <div>
+        <h1 class="hero-name">
+          <span class="line1">donald</span>
+          <span class="line2" data-text="raph.">raph.</span>
+        </h1>
+      </div>
+      <div class="avatar-wrap">
+        <div class="avatar">
+          DR
+          <img src="photo.jpg" alt="Donald Raph" onload="this.classList.add('loaded')" />
+        </div>
+        <div class="corner tl"></div>
+        <div class="corner br"></div>
+      </div>
+    </div>
+
+    <p class="hero-tagline">
+      Cloud &amp; SRE engineer. Community builder in <span class="hi">Southeast Nigeria</span>.<br/>
+      Founder of <span class="hi">Day Zero</span> — from nothing, to everything.<br/>
+      I break infrastructure on purpose so it never breaks by accident.
+    </p>
+
+    <div class="typewriter-wrap">
+      <div class="tw-label">// currently thinking about</div>
+      <div class="tw-line" id="twLine"></div>
+    </div>
+  </section>
+
+  <!-- WHAT I DO -->
+  <div class="divider reveal">
+    <span class="divider-label">what i do</span>
+    <div class="divider-line"></div>
+    <span class="divider-num">01</span>
+  </div>
+
+  <div class="doing-grid reveal">
+    <div class="doing-card c1"><div class="doing-accent"></div><span class="doing-icon">⚙️</span><div class="doing-title">SRE / Cloud</div><div class="doing-desc">Kubernetes, AWS, observability. I make distributed systems behave.</div></div>
+    <div class="doing-card c2"><div class="doing-accent"></div><span class="doing-icon">🏗️</span><div class="doing-title">Community</div><div class="doing-desc">Building Day Zero — Southeast Nigeria's tech builders home base.</div></div>
+    <div class="doing-card c3"><div class="doing-accent"></div><span class="doing-icon">🤖</span><div class="doing-title">AI + Infra</div><div class="doing-desc">LLM-powered SRE teammates. AI that actually helps during on-call.</div></div>
+    <div class="doing-card c4"><div class="doing-accent"></div><span class="doing-icon">📡</span><div class="doing-title">Build in Public</div><div class="doing-desc">GitHub, Dev.to, YouTube. The whole thing. Messy and honest.</div></div>
+    <div class="doing-card c5"><div class="doing-accent"></div><span class="doing-icon">🌍</span><div class="doing-title">Advocacy</div><div class="doing-desc">Fighting for Southeast Nigeria's place in the global tech conversation.</div></div>
+    <div class="doing-card c6"><div class="doing-accent"></div><span class="doing-icon">🔐</span><div class="doing-title">CKA Certified</div><div class="doing-desc">Kubernetes Administrator. Clusters don't scare me. People do.</div></div>
+  </div>
+
+  <!-- QUOTES -->
+  <div class="divider reveal">
+    <span class="divider-label">things i say</span>
+    <div class="divider-line"></div>
+    <span class="divider-num">02</span>
+  </div>
+
+  <div class="quote-section reveal" style="margin-bottom:60px">
+    <div class="quote-box">
+      <span class="q-mark">"</span>
+      <p class="q-text" id="qText"></p>
+      <div class="q-meta">
+        <span id="qCounter" style="font-size:10px"></span>
+        <div class="q-nav">
+          <button class="q-btn" onclick="prevQ()">← prev</button>
+          <button class="q-btn" onclick="nextQ()">next →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FIND ME -->
+  <div class="divider reveal">
+    <span class="divider-label">find me</span>
+    <div class="divider-line"></div>
+    <span class="divider-num">03</span>
+  </div>
+
+  <div class="links-grid reveal">
+    <a href="https://github.com/donaldraph" target="_blank" class="link-card gh">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      <span>GitHub</span>
+    </a>
+    <a href="https://linkedin.com/in/donaldraph" target="_blank" class="link-card li">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+      <span>LinkedIn</span>
+    </a>
+    <a href="https://dev.to/donaldraph" target="_blank" class="link-card dt">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M7.42 10.05c-.18-.16-.46-.23-.84-.23H6l.02 2.44.04 2.45.56-.02c.41 0 .63-.07.83-.26.24-.24.26-.36.26-2.2 0-1.91-.02-1.96-.29-2.18zM0 4.94v14.12h24V4.94H0zM8.56 15.3c-.44.58-1.06.77-2.53.77H4.71V8.53h1.4c1.67 0 2.16.18 2.6.9.27.43.29.6.32 2.57.05 2.23-.02 2.73-.47 3.3zm5.09-5.47h-2.47v1.77h1.52v1.28l-.72.04-.75.03v1.77l1.22.03 1.2.04v1.28h-1.6c-1.53 0-1.6-.01-1.87-.3l-.3-.28v-3.16c0-3.02.01-3.18.25-3.48.23-.31.25-.31 1.88-.31h1.64v1.28zm4.68 5.45c-.17.43-.64.79-1 .79-.18 0-.45-.15-.67-.39-.32-.32-.45-.63-.82-2.08l-.9-3.39-.45-1.67h.76c.4 0 .75.02.75.05 0 .06 1.16 4.54 1.26 4.83.04.15.32-.7.73-2.3l.66-2.52.74-.04c.4-.02.73 0 .73.04 0 .14-1.67 6.38-1.8 6.68z"/></svg>
+      <span>Dev.to</span>
+    </a>
+    <a href="https://youtube.com/@donaldraph" target="_blank" class="link-card yt">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+      <span>YouTube</span>
+    </a>
+  </div>
+
+  <footer class="footer reveal">
+    <div>donaldraph.me — the lightweight version</div>
+    <div style="text-align:right">
+      built with intention.<br/>
+      <span style="color:var(--green)">Day Zero</span> — From Nothing, To Everything.
+    </div>
+  </footer>
+
+</div>
+
+<script>
+  // CURSOR
+  const cur = document.getElementById('cursor');
+  const ring = document.getElementById('cursorRing');
+  let mx=0,my=0,rx=0,ry=0;
+  document.addEventListener('mousemove', e => {
+    mx = e.clientX; my = e.clientY;
+    cur.style.left = mx+'px'; cur.style.top = my+'px';
+  });
+  (function animRing(){
+    rx += (mx-rx)*0.12; ry += (my-ry)*0.12;
+    ring.style.left = rx+'px'; ring.style.top = ry+'px';
+    requestAnimationFrame(animRing);
+  })();
+  document.querySelectorAll('a,button,.doing-card').forEach(el=>{
+    el.addEventListener('mouseenter',()=>{cur.style.transform='translate(-50%,-50%) scale(2)';ring.style.transform='translate(-50%,-50%) scale(1.5)';});
+    el.addEventListener('mouseleave',()=>{cur.style.transform='translate(-50%,-50%) scale(1)';ring.style.transform='translate(-50%,-50%) scale(1)';});
+  });
+
+  // TYPEWRITER
+  const thoughts = [
+    'making Kubernetes clusters behave',
+    'building Day Zero from scratch',
+    'the UK Global Talent Visa grind',
+    'why Southeast Nigeria deserves more',
+    'LLM-powered SRE teammates',
+    'observability as a philosophy',
+    'building in public, messy and honest',
+    'what "exceptional promise" really means',
+  ];
+  let ti=0,tc=0,del=false;
+  const tw = document.getElementById('twLine');
+  function type(){
+    const w=thoughts[ti];
+    if(!del){ tw.textContent=w.slice(0,++tc); if(tc===w.length){del=true;setTimeout(type,2200);return;} setTimeout(type,65); }
+    else { tw.textContent=w.slice(0,--tc); if(tc===0){del=false;ti=(ti+1)%thoughts.length;setTimeout(type,400);return;} setTimeout(type,32); }
+  }
+  setTimeout(type,1400);
+
+  // QUOTES
+  const quotes = [
+    "If it hasn't failed, you haven't tested it hard enough.",
+    "Building from Southeast Nigeria isn't a limitation. It's a superpower nobody expects.",
+    "The best SRE isn't the one who prevents every outage — it's the one who makes recovery boring.",
+    "Kubernetes is just Linux with better PR.",
+    "From nothing, to everything. That's not a tagline. That's a promise.",
+    "Observability isn't about dashboards. It's about asking questions your system can answer.",
+    "The infrastructure is fine. It's always the infrastructure.",
+    "Nobody remembers the systems that never went down. They remember the people who brought them back up.",
+    "Lagos is a city. Southeast Nigeria is a movement.",
+    "Build in public. Ship ugly. Iterate honestly.",
+  ];
+  let qi=0;
+  const qEl=document.getElementById('qText'), qC=document.getElementById('qCounter');
+  function showQ(){
+    qEl.style.opacity='0';
+    setTimeout(()=>{ qEl.textContent=quotes[qi]; qC.textContent=`${String(qi+1).padStart(2,'0')} / ${String(quotes.length).padStart(2,'0')}`; qEl.style.opacity='1'; },200);
+  }
+  function nextQ(){ qi=(qi+1)%quotes.length; showQ(); }
+  function prevQ(){ qi=(qi-1+quotes.length)%quotes.length; showQ(); }
+  showQ();
+  setInterval(nextQ, 9000);
+
+  // SCROLL REVEAL
+  const obs = new IntersectionObserver(entries=>{
+    entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('visible'); obs.unobserve(e.target); } });
+  },{threshold:0.1});
+  document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+</script>
+</body>
+</html>
