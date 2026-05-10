@@ -294,6 +294,80 @@
     .reveal { opacity:0; transform:translateY(16px); transition:opacity 0.6s ease, transform 0.6s ease; }
     .reveal.visible { opacity:1; transform:none; }
 
+    /* MISSION CONTROL GATE */
+    .mc-gate { margin-bottom: 80px; }
+
+    .mc-lock-ui {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--green);
+      padding: 40px 36px;
+      max-width: 560px;
+    }
+    .mc-lock-header {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 10px; color: var(--green);
+      letter-spacing: 0.25em; text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .mc-lock-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green); box-shadow: 0 0 8px var(--green);
+      animation: pulse 2s infinite; flex-shrink: 0;
+    }
+    .mc-lock-title {
+      font-family: var(--display); font-size: 28px; font-weight: 900;
+      color: var(--text); letter-spacing: -0.02em; margin-bottom: 4px;
+    }
+    .mc-lock-sub {
+      font-size: 10px; color: var(--text-dim); letter-spacing: 0.15em;
+      margin-bottom: 20px;
+    }
+    .mc-lock-desc {
+      font-size: 12px; color: var(--text-dim); line-height: 1.8;
+      margin-bottom: 28px;
+    }
+    .mc-input-wrap {
+      position: relative; margin-bottom: 10px;
+    }
+    .mc-input {
+      width: 100%; background: var(--bg); border: 1px solid var(--border);
+      color: var(--text); padding: 12px 52px 12px 16px; font-family: var(--mono);
+      font-size: 13px; border-radius: 0; outline: none;
+      transition: border-color 0.2s ease;
+    }
+    .mc-input:focus { border-color: rgba(0,255,136,0.35); }
+    .mc-input.error { border-color: var(--pink); }
+    .mc-show-btn {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: var(--text-dim); cursor: none;
+      font-family: var(--mono); font-size: 11px; padding: 0;
+    }
+    .mc-show-btn:hover { color: var(--green); }
+    .mc-err {
+      font-size: 11px; color: var(--pink); letter-spacing: 0.05em;
+      margin-bottom: 10px;
+    }
+    .mc-unlock-btn {
+      width: 100%; background: rgba(0,255,136,0.07);
+      border: 1px solid rgba(0,255,136,0.3); color: var(--green);
+      padding: 12px; font-family: var(--mono); font-size: 12px;
+      font-weight: 600; letter-spacing: 0.15em; cursor: none;
+      transition: all 0.2s ease;
+    }
+    .mc-unlock-btn:hover {
+      background: rgba(0,255,136,0.12);
+      border-color: rgba(0,255,136,0.6);
+    }
+    .mc-frame-wrap {
+      width: 100%; border: 1px solid var(--border);
+      animation: fadeUp 0.5s ease forwards;
+    }
+    .mc-frame {
+      width: 100%; height: 90vh; border: none; display: block;
+      background: #0b0e14;
+    }
+
     /* RESPONSIVE */
     @media(max-width:640px){
       .hero-layout { grid-template-columns:1fr; }
@@ -411,6 +485,37 @@
     </a>
   </div>
 
+  <!-- MISSION CONTROL -->
+  <div class="divider reveal">
+    <span class="divider-label">mission control</span>
+    <div class="divider-line"></div>
+    <span class="divider-num">04</span>
+  </div>
+
+  <div class="mc-gate reveal" id="mcGate">
+    <div class="mc-lock-ui" id="mcLockUI">
+      <div class="mc-lock-header">
+        <div class="mc-lock-dot"></div>
+        <span class="mc-lock-label">DAY ZERO // MISSION CONTROL</span>
+      </div>
+      <div class="mc-lock-title">@donaldraph</div>
+      <div class="mc-lock-sub">RESTRICTED ACCESS — INTERNAL SYSTEM</div>
+      <div class="mc-lock-desc">
+        Live tracker: certifications, builds, ambassador programs,<br/>
+        GTV evidence, 9-month SRE playbook, and everything in motion.
+      </div>
+      <div class="mc-input-wrap" id="mcInputWrap">
+        <input type="password" id="mcPassInput" placeholder="enter access code" class="mc-input" autocomplete="off"/>
+        <button onclick="mcToggleShow()" class="mc-show-btn" id="mcShowBtn">show</button>
+      </div>
+      <div id="mcErr" class="mc-err" style="display:none">incorrect password</div>
+      <button onclick="mcUnlock()" class="mc-unlock-btn">UNLOCK</button>
+    </div>
+    <div class="mc-frame-wrap" id="mcFrameWrap" style="display:none">
+      <iframe id="mcFrame" src="" class="mc-frame" title="Mission Control"></iframe>
+    </div>
+  </div>
+
   <footer class="footer reveal">
     <div>donaldraph.me — the lightweight version</div>
     <div style="text-align:right">
@@ -435,7 +540,7 @@
     ring.style.left = rx+'px'; ring.style.top = ry+'px';
     requestAnimationFrame(animRing);
   })();
-  document.querySelectorAll('a,button,.doing-card').forEach(el=>{
+  document.querySelectorAll('a,button,.doing-card,.mc-input').forEach(el=>{
     el.addEventListener('mouseenter',()=>{cur.style.transform='translate(-50%,-50%) scale(2)';ring.style.transform='translate(-50%,-50%) scale(1.5)';});
     el.addEventListener('mouseleave',()=>{cur.style.transform='translate(-50%,-50%) scale(1)';ring.style.transform='translate(-50%,-50%) scale(1)';});
   });
@@ -484,7 +589,43 @@
   showQ();
   setInterval(nextQ, 9000);
 
-  // SCROLL REVEAL
+  // MISSION CONTROL GATE
+  const MC_PASS = "dayzer0@0";
+  let mcVisible = false;
+
+  function mcToggleShow() {
+    const inp = document.getElementById('mcPassInput');
+    const btn = document.getElementById('mcShowBtn');
+    if (inp.type === 'password') { inp.type = 'text'; btn.textContent = 'hide'; }
+    else { inp.type = 'password'; btn.textContent = 'show'; }
+  }
+
+  function mcUnlock() {
+    const inp = document.getElementById('mcPassInput');
+    const err = document.getElementById('mcErr');
+    if (inp.value.trim().toLowerCase() === MC_PASS.toLowerCase()) {
+      const lockUI  = document.getElementById('mcLockUI');
+      const frameWrap = document.getElementById('mcFrameWrap');
+      const frame = document.getElementById('mcFrame');
+      lockUI.style.display = 'none';
+      frameWrap.style.display = 'block';
+      frame.src = 'mission.html?skip_gate=1';
+      frameWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      err.style.display = 'block';
+      inp.classList.add('error');
+      inp.value = '';
+      setTimeout(() => {
+        err.style.display = 'none';
+        inp.classList.remove('error');
+      }, 1600);
+    }
+  }
+
+  document.getElementById('mcPassInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') mcUnlock();
+  });
+
   const obs = new IntersectionObserver(entries=>{
     entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('visible'); obs.unobserve(e.target); } });
   },{threshold:0.1});

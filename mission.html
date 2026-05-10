@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mission Control // @donaldraph</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.5/babel.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{background:#0b0e14;min-height:100vh;overflow-x:hidden}
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+    // ── localStorage shim for window.storage API ──────────────────────────────
+    window.storage = {
+      get: function(key) {
+        try {
+          var val = localStorage.getItem(key);
+          return Promise.resolve(val !== null ? { key: key, value: val } : null);
+        } catch(e) {
+          return Promise.reject(e);
+        }
+      },
+      set: function(key, value) {
+        try {
+          localStorage.setItem(key, value);
+          return Promise.resolve({ key: key, value: value });
+        } catch(e) {
+          return Promise.reject(e);
+        }
+      },
+      delete: function(key) {
+        try {
+          localStorage.removeItem(key);
+          return Promise.resolve({ key: key, deleted: true });
+        } catch(e) {
+          return Promise.reject(e);
+        }
+      }
+    };
+  </script>
+  <script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef } = React;
+
+// ── 🔑 CHANGE THIS PASSWORD ───────────────────────────────────────────────────
+const PASS = "dayzer0@0";
+
+// ── STATUS CONFIG ─────────────────────────────────────────────────────────────
+const S = {
+  DOING:    { label:"Doing Now",   color:"#22c55e", bg:"rgba(34,197,94,0.09)"   },
+  BUILDING: { label:"Building",    color:"#f59e0b", bg:"rgba(245,158,11,0.09)"  },
+  LEARNING: { label:"Learning",    color:"#38bdf8", bg:"rgba(56,189,248,0.09)"  },
+  APPLYING: { label:"Applying",    color:"#a78bfa", bg:"rgba(167,139,250,0.09)" },
+  PLANNING: { label:"Planning",    color:"#fb923c", bg:"rgba(251,146,60,0.09)"  },
+  FUTURE:   { label:"Future/Prep", color:"#94a3b8", bg:"rgba(148,163,184,0.09)" },
+  DONE:     { label:"Done",        color:"#4ade80", bg:"rgba(74,222,128,0.05)"  },
+};
+const STATUS_ORDER = ["DOING","BUILDING","LEARNING","APPLYING","PLANNING","FUTURE","DONE"];
+const CATS = ["All","Career","Certifications","Community","Builds","Education","Ambassador","Content","Visa","Freelance"];
+
+let _uid = 300;
+const gid = () => `u${++_uid}_${Date.now()}`;
+
+// ── SEED DATA ─────────────────────────────────────────────────────────────────
+const SEED = [
+  // FUTURE (not yet completed)
+  { id:"d1", text:"CKA — Certified Kubernetes Administrator (target: LiFT Scholarship funding pathway)", status:"FUTURE", category:"Certifications", pinned:true },
+  // DOING
+  { id:"a1", text:"B.Sc. Computer Science — Nnamdi Azikiwe University (Unizik)", status:"DOING", category:"Education", pinned:false },
+  { id:"a2", text:"Day Zero — community building, events & ongoing operations in Anambra", status:"DOING", category:"Community", pinned:false },
+  { id:"a3", text:"LinkedIn content — 2x/week (SRE, Kubernetes, AI, community building)", status:"DOING", category:"Content", pinned:false },
+  { id:"a4", text:"UK GTV evidence-building — 9-month SRE execution roadmap", status:"DOING", category:"Visa", pinned:true },
+  { id:"a5", text:"Public Engineering Presence Program — 36-week system (@donaldraph: GitHub, Dev.to, YouTube, LinkedIn)", status:"DOING", category:"Content", pinned:false },
+  { id:"a6", text:"Open source contributions — Kubernetes docs / Helm / CNCF projects (1 PR/week target)", status:"DOING", category:"Career", pinned:false },
+  { id:"a7", text:"UK GTV Evidence Tracker spreadsheet — update weekly", status:"DOING", category:"Visa", pinned:false },
+  { id:"a8", text:"GitHub Actions auto-update — verify the system is still running", status:"DOING", category:"Builds", pinned:false },
+  { id:"a9", text:"Claude AI Ambassador — actively use for Day Zero events (funding, API credits, swag, promotion)", status:"DOING", category:"Ambassador", pinned:false },
+  // BUILDING
+  { id:"b1", text:"PROMETHEUS — Polymarket autonomous trading bot (CLOB on Polygon, WebSocket, 4 strategies loaded)", status:"BUILDING", category:"Builds", pinned:false },
+  { id:"b2", text:"NEXUS (name TBD) — Kubernetes AI SRE training platform (EKS + xterm.js + LLM teammates + War Room UI)", status:"BUILDING", category:"Builds", pinned:true },
+  { id:"b3", text:"NEXUS — MCP integration (must ship before Aug 31 CFP deadline)", status:"BUILDING", category:"Builds", pinned:true },
+  { id:"b4", text:"Day Zero platform — React UI + AWS CDK (ECS, RDS, Cognito, S3, CloudFront, Lambda, Claude Haiku)", status:"BUILDING", category:"Builds", pinned:false },
+  { id:"b5", text:"ARES — 11-microservice AI SRE platform (Amazon Nova hackathon)", status:"BUILDING", category:"Builds", pinned:false },
+  { id:"b6", text:"Raph's Orbit — EC2 social media radar (FastAPI, Docker Compose, RSSHub, Telegram alerts)", status:"BUILDING", category:"Builds", pinned:false },
+  { id:"b7", text:"donaldraph.me — personal portfolio site (dark Grafana-style SPA)", status:"BUILDING", category:"Builds", pinned:false },
+  // LEARNING
+  { id:"l1", text:"⚠️ 2-WEEK DEADLINE — GitHub Foundations Certification (free voucher secured · 1.5 hrs/day)", status:"LEARNING", category:"Certifications", pinned:true },
+  { id:"l2", text:"⚠️ MONTH-END — MongoDB Atlas Administrator Path (free voucher · hands-on labs first)", status:"LEARNING", category:"Certifications", pinned:true },
+  { id:"l3", text:"⚠️ MONTH-END — Frontend Masters Cloud+DevOps track (free access secured · skip frontend content)", status:"LEARNING", category:"Career", pinned:false },
+  { id:"l4", text:"Google Arcade — targeting Legend tier (don't miss a monthly cycle)", status:"LEARNING", category:"Career", pinned:false },
+  { id:"l5", text:"KodeKloud & Killer.sh — hands-on SRE lab training (CKAD/CKS prep)", status:"LEARNING", category:"Certifications", pinned:false },
+  { id:"l6", text:"Terraform — active learning (Phase 1 SRE roadmap + HashiCorp Ambassador alignment)", status:"LEARNING", category:"Certifications", pinned:false },
+  // APPLYING
+  { id:"ap1", text:"AWS Student Builder Leader (formerly Cloud Club Captain) — applied, follow up in 3-4 wks if no response", status:"APPLYING", category:"Ambassador", pinned:false },
+  { id:"ap2", text:"AWS Student Builder Program — applied, awaiting response", status:"APPLYING", category:"Ambassador", pinned:false },
+  { id:"ap3", text:"LiFT Scholarship (Linux Foundation) — free CKA/CKAD/LFCA training + exam", status:"APPLYING", category:"Certifications", pinned:false },
+  { id:"ap4", text:"Outreachy (next round) — build OSS history first; SE Nigeria story is a competitive edge", status:"APPLYING", category:"Ambassador", pinned:false },
+  { id:"ap5", text:"HashiCorp Ambassador — prep phase (Terraform IaC projects + blog posts + HUG meetup)", status:"APPLYING", category:"Ambassador", pinned:false },
+  { id:"ap6", text:"Aspire Leaders Program (Harvard-affiliated) — registered interest, watch for next batch", status:"APPLYING", category:"Ambassador", pinned:false },
+  { id:"ap7", text:"Clipboard Health — Customer Experience Specialist role — follow up on application", status:"APPLYING", category:"Career", pinned:false },
+  // PLANNING
+  { id:"p1",  text:"CNCF Community Group — register 'Cloud Native Anambra' (free, unlocks 5 cert vouchers/yr + 25% LF discounts)", status:"PLANNING", category:"Community", pinned:true },
+  { id:"p2",  text:"CNCF Ambassador — build qualifying evidence: OSS contributions, events, DevStats 20+ score", status:"PLANNING", category:"Ambassador", pinned:true },
+  { id:"p3",  text:"Day Zero — CAC registration (Corporate Affairs Commission Nigeria — blocking all partnerships)", status:"PLANNING", category:"Community", pinned:true },
+  { id:"p4",  text:"Day Zero — secure all social handles under 'Day Zero' brand before someone else does", status:"PLANNING", category:"Community", pinned:false },
+  { id:"p5",  text:"Day Zero — website launch (platform already designed, just deploy it)", status:"PLANNING", category:"Community", pinned:false },
+  { id:"p6",  text:"Day Zero — Builders Cohort: 8-week structured learning program", status:"PLANNING", category:"Community", pinned:false },
+  { id:"p7",  text:"Day Zero — Student Ambassador program (modeled on GitHub Campus Experts)", status:"PLANNING", category:"Community", pinned:false },
+  { id:"p8",  text:"Day Zero — Pioneers: annual recognition program (nomination-based, like GitHub Stars)", status:"PLANNING", category:"Community", pinned:false },
+  { id:"p9",  text:"Day Zero — quarterly events: workshops, hackathons, study jams in Anambra", status:"PLANNING", category:"Community", pinned:false },
+  { id:"p10", text:"Day Zero — partner with SE universities: UNIZIK, UNN, ESUT, FUTO, COOU", status:"PLANNING", category:"Community", pinned:false },
+  { id:"p11", text:"SID Mini Hub — register Day Zero as Anambra state innovation partner (1 form, do it now)", status:"PLANNING", category:"Community", pinned:false },
+  { id:"p12", text:"3MTT (NITDA) — apply as Training Provider / Applied Learning Cluster (federal legitimacy)", status:"PLANNING", category:"Community", pinned:false },
+  { id:"p13", text:"GDG Anambra/Awka — start Google Developer Group chapter under Day Zero umbrella", status:"PLANNING", category:"Ambassador", pinned:false },
+  { id:"p14", text:"MCP Dev Summit Nairobi — CFP submission (Aug 31 deadline · angle: AI SRE + NEXUS + SE Nigeria story)", status:"PLANNING", category:"Content", pinned:true },
+  { id:"p15", text:"Lagos APIConf — confirm date at apiconf.net, submit CFP", status:"PLANNING", category:"Content", pinned:false },
+  { id:"p16", text:"GitHub Campus Expert — build event portfolio now, apply in July window", status:"PLANNING", category:"Ambassador", pinned:false },
+  { id:"p17", text:"LFX Mentorship — contribute to LFX-listed projects before applying", status:"PLANNING", category:"Ambassador", pinned:false },
+  { id:"p18", text:"GitHub Stars — NEXUS/PROMETHEUS/Day Zero repos with exceptional READMEs + community utility", status:"PLANNING", category:"Ambassador", pinned:false },
+  { id:"p19", text:"MLH Fellowship — build OSS history + 2 strong repos, then apply", status:"PLANNING", category:"Ambassador", pinned:false },
+  { id:"p20", text:"GSoC — contribute to 1-2 orgs before next application cycle opens", status:"PLANNING", category:"Ambassador", pinned:false },
+  { id:"p21", text:"Grafana Champion — target after Prometheus Certified Associate (SRE observability stack)", status:"PLANNING", category:"Ambassador", pinned:false },
+  { id:"p22", text:"CNCF TAG Contributor / SIG Member — strong CNCF Ambassador qualifier", status:"PLANNING", category:"Ambassador", pinned:false },
+  { id:"p23", text:"KCD Nigeria (Kubernetes Community Days Lagos) — speak at or co-organize", status:"PLANNING", category:"Community", pinned:false },
+  { id:"p24", text:"OSCA (Open Source Community Africa) — join for Day Zero community synergy", status:"PLANNING", category:"Community", pinned:false },
+  { id:"p25", text:"Andela Learning Community — join ALC, explore channel partner for K8s programme", status:"PLANNING", category:"Ambassador", pinned:false },
+  { id:"p26", text:"ISN Hubs — apply for membership (200+ Nigerian hubs, GIZ / Ford Foundation access)", status:"PLANNING", category:"Community", pinned:false },
+  { id:"p27", text:"Upwork — create profile: headline 'I keep your infrastructure running at 99.9% uptime'", status:"PLANNING", category:"Freelance", pinned:false },
+  { id:"p28", text:"Dev.to — 1 technical post per week (SRE / K8s / cloud / community)", status:"PLANNING", category:"Content", pinned:false },
+  { id:"p29", text:"YouTube — monthly video (lab walkthroughs, project demos, community updates)", status:"PLANNING", category:"Content", pinned:false },
+  { id:"p30", text:"AWS Community Builder — apply next open window (stepping stone to AWS Hero)", status:"PLANNING", category:"Ambassador", pinned:false },
+  { id:"p31", text:"NATEP — register Day Zero graduates into national talent export pipeline", status:"PLANNING", category:"Community", pinned:false },
+  { id:"p32", text:"Unizik large-scale Claude AI event — target 100-150 attendees", status:"PLANNING", category:"Community", pinned:false },
+  // FUTURE
+  { id:"f1",  text:"UK Global Talent Visa — Exceptional Promise, Digital Technology track", status:"FUTURE", category:"Visa", pinned:true },
+  { id:"f2",  text:"WGU B.S. Cloud and Network Engineering (bundles CCNA, AWS SAA, Azure Admin, Security+, CompTIA stack)", status:"FUTURE", category:"Education", pinned:true },
+  { id:"f3",  text:"Georgia Tech OMSCS — M.S. Computer Science, Systems specialization", status:"FUTURE", category:"Education", pinned:true },
+  { id:"f4",  text:"FAANG-tier SRE role — Amazon, Netflix, or Google", status:"FUTURE", category:"Career", pinned:true },
+  { id:"f5",  text:"CKAD — Certified Kubernetes Application Developer", status:"FUTURE", category:"Certifications", pinned:false },
+  { id:"f6",  text:"CKS — Certified Kubernetes Security Specialist", status:"FUTURE", category:"Certifications", pinned:false },
+  { id:"f7",  text:"AWS Solutions Architect Associate → Professional → DevOps Professional (Phase 4 SRE roadmap)", status:"FUTURE", category:"Certifications", pinned:false },
+  { id:"f8",  text:"RHCE (Red Hat Certified Engineer) — Phase 5 SRE roadmap", status:"FUTURE", category:"Certifications", pinned:false },
+  { id:"f9",  text:"FinOps Practitioner — Phase 6 SRE roadmap", status:"FUTURE", category:"Certifications", pinned:false },
+  { id:"f10", text:"CISSP + NVIDIA AI Infrastructure — Phase 7 SRE roadmap (long-term)", status:"FUTURE", category:"Certifications", pinned:false },
+  { id:"f11", text:"AWS Hero — nomination-only; path: Community Builder → 2-3 yrs work → Hero", status:"FUTURE", category:"Ambassador", pinned:false },
+  { id:"f12", text:"Day Zero — SE State Challenge: annual inter-state competition (5 SE states)", status:"FUTURE", category:"Community", pinned:false },
+  { id:"f13", text:"Day Zero — expand to all of Nigeria; AfriLabs membership (400+ hubs, 52 countries)", status:"FUTURE", category:"Community", pinned:false },
+  { id:"f14", text:"Day Zero Summit — flagship annual conference", status:"FUTURE", category:"Community", pinned:false },
+  { id:"f15", text:"Day Zero — scholarship fund for SE Nigeria developers", status:"FUTURE", category:"Community", pinned:false },
+  { id:"f16", text:"AltSchool Campus hub in Anambra — hybrid learning partnership", status:"FUTURE", category:"Community", pinned:false },
+  { id:"f17", text:"Microsoft MVP Program — build toward via Azure community contributions", status:"FUTURE", category:"Ambassador", pinned:false },
+  { id:"f18", text:"Upwork $5M/10yr: Y1-2→$50K/yr · Y3-5→$200-500K/yr · Y6-10→$500K-1M+/yr", status:"FUTURE", category:"Freelance", pinned:false },
+  { id:"f19", text:"Linux Kernel Mentorship — long-term target; kernel patches via git format-patch", status:"FUTURE", category:"Career", pinned:false },
+  { id:"f20", text:"GCP DevOps Engineer + Azure DevOps Expert (Phase 4 multi-cloud mastery)", status:"FUTURE", category:"Certifications", pinned:false },
+  { id:"f21", text:"Google Cloud Professional Cloud Architect — long-term cert target", status:"FUTURE", category:"Certifications", pinned:false },
+  // NVIDIA Certs
+  { id:"nv1", text:"NVIDIA Certified Associate: AI Infrastructure and Operations (~$125 · entry point to NVIDIA track)", status:"FUTURE", category:"Certifications", pinned:false },
+  { id:"nv2", text:"NVIDIA Certified Professional: AI Infrastructure (Professional tier · AI Infra track)", status:"FUTURE", category:"Certifications", pinned:false },
+  { id:"nv3", text:"NVIDIA Certified Professional: AI Operations (Professional tier · AI Infra track)", status:"FUTURE", category:"Certifications", pinned:false },
+  { id:"nv4", text:"NVIDIA Certified Professional: AI Networking (Professional tier · AI Infra track)", status:"FUTURE", category:"Certifications", pinned:false },
+  { id:"nv5", text:"NVIDIA Certified Professional: Generative AI LLMs (Professional tier · AI Applications track)", status:"FUTURE", category:"Certifications", pinned:false },
+  { id:"nv6", text:"NVIDIA Certified Professional: Agentic AI (Professional tier · AI Applications track)", status:"FUTURE", category:"Certifications", pinned:false },
+  { id:"nv7", text:"NVIDIA Certified Professional: Accelerated Data Science (Professional tier · AI Applications track)", status:"FUTURE", category:"Certifications", pinned:false },
+  // GIAC
+  { id:"gc1", text:"GIAC GCAD — Cloud Architecture and Design (SANS · validates cloud security architecture · strong GTV + senior SRE signal)", status:"FUTURE", category:"Certifications", pinned:false },
+];
+
+// ── SRE CERT ROADMAP ─────────────────────────────────────────────────────────
+const PHASES = [
+  { n:1, title:"Foundations", certs:[
+    { name:"Terraform Associate", cost:70 },
+    { name:"Azure Administrator", cost:165 },
+    { name:"GCP Database Engineer", cost:200 },
+  ]},
+  { n:2, title:"Core SRE Skills", certs:[
+    { name:"Prometheus Certified Associate", cost:200 },
+    { name:"Kubernetes CKAD", cost:395 },
+    { name:"Kubernetes CKA", cost:395 },
+  ]},
+  { n:3, title:"Advanced Kubernetes & Security", certs:[
+    { name:"Kubernetes CKS", cost:395 },
+  ]},
+  { n:4, title:"Multi-Cloud Mastery", certs:[
+    { name:"AWS Solutions Architect Associate", cost:150 },
+    { name:"AWS Solutions Architect Professional", cost:300 },
+    { name:"AWS DevOps Engineer Professional", cost:300 },
+    { name:"GCP DevOps Engineer", cost:200 },
+    { name:"Azure DevOps Engineer Expert", cost:165 },
+  ]},
+  { n:5, title:"Systems & Infrastructure", certs:[
+    { name:"RHCE (Red Hat Certified Engineer)", cost:400 },
+  ]},
+  { n:6, title:"Observability & FinOps", certs:[
+    { name:"FinOps Practitioner", cost:325 },
+  ]},
+  { n:7, title:"Security & Future Edge", certs:[
+    { name:"CISSP", cost:749 },
+    { name:"NVIDIA AI Infrastructure", cost:125 },
+  ]},
+];
+const TOTAL_COST = 4534;
+
+// ── PRIORITY INTEL ────────────────────────────────────────────────────────────
+const INTEL = [
+  { tier:"🚨 URGENT — act this week", col:"#ef4444", items:[
+    "GitHub Foundations Cert: 2-week voucher expiry. Block 1.5 hrs/day now. Don't cram the last 3 days.",
+    "MongoDB Atlas Admin: month-end deadline. 3 hrs/day. Prioritise hands-on Atlas labs over reading.",
+    "Frontend Masters: free access expires month-end. Focus ONLY on Cloud/DevOps modules — skip everything else.",
+    "CNCF Community Group 'Cloud Native Anambra': takes 30 minutes. Free. Unlocks 5 free cert vouchers/yr + 25% off ALL Linux Foundation certs. Do this today.",
+    "SID Mini Hub registration: one form at portal.sid.ng/apply. Opens Anambra government backing. Low effort, high credibility.",
+  ]},
+  { tier:"🔴 HIGH IMPACT — do within 2–4 weeks", col:"#f59e0b", items:[
+    "Day Zero CAC registration: nothing official can happen without this. It is blocking every partnership and funding path downstream.",
+    "Secure all Day Zero social handles: Twitter/X, Instagram, YouTube, TikTok. If someone takes them you'll spend months undoing it.",
+    "NEXUS MCP integration: CFP deadline is Aug 31, 2026. That's ~16 weeks. You need working code + documented integration BEFORE submitting. Start the integration this month.",
+    "3MTT Training Provider / ALC application: federal-level legitimacy for Day Zero at near-zero effort. Opens cohort access.",
+  ]},
+  { tier:"🟡 BUILD CONSISTENTLY — next 30–90 days", col:"#38bdf8", items:[
+    "OSS contributions: 1 PR/week. Start with Kubernetes docs or Helm (lowest barrier, still counts for CNCF/Outreachy/LFX/GSoC). Log every PR — UK GTV evidence.",
+    "Dev.to blog cadence: 1 post/week. These are simultaneously GTV evidence, AWS Community Builder application material, and CNCF Ambassador qualifying content.",
+    "MCP Dev Summit CFP abstract draft: have the draft ready so when NEXUS MCP is working, you submit immediately.",
+    "GitHub Campus Expert evidence portfolio: July application window. Day Zero workshops + events = direct evidence. Document everything with photos, attendee counts, and impact notes now.",
+  ]},
+  { tier:"⚪ REAL GOALS — but don't rush them", col:"#94a3b8", items:[
+    "AWS Hero: nomination-only, needs 2-3 years of community work. Path: Community Builder first. Don't think about Hero until you have Builder status.",
+    "GitHub Stars: needs genuine community utility in your repos. NEXUS + Day Zero platform are your best shots. Exceptional READMEs matter more than lines of code.",
+    "Linux Kernel Mentorship: lower ROI for your specific cloud-native goals vs contributing to Kubernetes/Helm/Prometheus. Deprioritise until after CNCF Ambassador.",
+    "WGU → Georgia Tech: sequence them correctly. WGU after you have income stability. Georgia Tech after WGU graduation. Don't let enrollment distract from near-term GTV evidence.",
+    "CISSP, RHCE, FinOps (Phases 5-7): great long-term targets. Don't buy vouchers yet — they expire.",
+  ]},
+];
+
+// ── EDUCATION DATA ─────────────────────────────────────────────────────────────
+const WGU_CERTS = [
+  "CompTIA A+","CompTIA Cloud+","CompTIA Network+","CompTIA Security+",
+  "ITIL® Foundation","LPI Linux Essentials","Cisco CCNA","Cisco DevNet Associate",
+  "Cisco Cybersecurity","CompTIA IT Ops Specialist (Stacked)","CompTIA Secure Infrastructure Specialist (Stacked)",
+  "CompTIA Cloud Admin Professional (Stacked)","CompTIA Secure Cloud Professional (Stacked)",
+  "AWS Cloud Practitioner","AWS Solutions Architect","AWS CyberOps Administrator Associate",
+  "Microsoft Azure Administrator","Azure Fundamentals",
+];
+const GT_COURSES = [
+  { code:"CS 6200", name:"Introduction to Operating Systems",   priority:"⭐ Must",  note:"Foundation for all SRE work. Start here." },
+  { code:"CS 6250", name:"Computer Networks",                   priority:"⭐ Must",  note:"Deep infrastructure knowledge, directly applicable." },
+  { code:"CS 7210", name:"Distributed Computing",               priority:"⭐ Must",  note:"Most SRE-relevant course in the entire program." },
+  { code:"CS 6035", name:"Intro to Information Security",       priority:"High",    note:"Aligns with CKS track + cloud security posture." },
+  { code:"CS 6290", name:"High Performance Computer Architecture", priority:"High", note:"Systems thinking at the hardware/OS boundary." },
+  { code:"CS 6300", name:"Software Development Process",        priority:"Medium",  note:"Engineering rigour. Useful for open source leadership." },
+  { code:"CS 7646", name:"Machine Learning for Trading",        priority:"Optional",note:"Directly relevant to PROMETHEUS/quant side." },
+  { code:"CS 6515", name:"Graduate Algorithms",                 priority:"Medium",  note:"FAANG interview prep, Theory specialization requirement." },
+  { code:"CS 8803", name:"Systems for ML",                      priority:"Optional",note:"Emerging relevance for AI+SRE convergence (NEXUS thesis)." },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── PEPP DATA ─────────────────────────────────────────────────────────────────
+// 36-week rotating content system: [week, article, short-post, diagram, deep-breakdown]
+const PEPP_WEEKS = [
+  [1,"Why containers are processes, not VMs: /proc and namespaces","ls -la /proc/<PID>/ns/ — the command that changed how I think about containers","Diagram: Host PID namespace vs container PID namespace — shared kernel","Building a container from scratch with unshare and chroot: what Docker actually does"],
+  [2,"Reading 10K lines of JSON logs in 2 minutes: the awk/jq pipeline","Why your average response time metric is lying to you (and what p99 reveals)","Histogram: identical averages hiding completely different latency distributions","Percentile math: why 0.99^100 means your microservice chain fails 63% of the time"],
+  [3,"What happens between DNS query and HTTP response: tracing through 7 layers","dig +trace taught me more about DNS than any course","Request flow: DNS resolution → TCP → TLS → HTTP with timing at each hop","Debugging a 200ms latency spike that only appeared on cross-AZ traffic"],
+  [4,"Git is not a backup tool: how the DAG model changes how you think about code history","The pre-commit hook that catches secrets, large files, and broken YAML","Git object model: blobs, trees, commits, refs as a directed acyclic graph","Anatomy of a merge conflict in Terraform state: why git merge fails"],
+  [5,"Docker networking is Linux networking: bridges, veth pairs, and iptables","docker network inspect told me why my containers couldn't talk to each other","Docker bridge network: veth pairs connecting container namespaces to docker0 with iptables NAT","Why docker-compose services resolve by name but raw containers don't: embedded DNS internals"],
+  [6,"Your first Kubernetes deployment is lying about being healthy: why probes matter","The difference between a readiness probe and a liveness probe cost us 45 minutes of downtime","Pod lifecycle state machine: Pending → Running → Ready — where probes gate traffic","Debugging CrashLoopBackOff: a systematic approach using exit codes, events, and logs"],
+  [7,"Terraform plan said no changes but apply broke everything: state drift","terraform state list is the command I run before every plan now","Terraform execution flow: init → plan → apply showing state file reads and writes","Recovering from corrupted Terraform state: state rm, import, and the nuclear option"],
+  [8,"Prometheus is a pull-based system and that design decision matters more than you think","The 3 PromQL functions that answer 90% of production questions: rate(), histogram_quantile(), increase()","Prometheus architecture: scrape targets → TSDB → PromQL engine → Alertmanager","Why your Prometheus cardinality is exploding: label design mistakes and how to fix them"],
+  [9,"CI/CD is not a pipeline — it is a feedback system: designing builds that tell you what failed","The GitHub Actions matrix strategy that tests against 3 Kubernetes versions in parallel","CI/CD feedback loop: commit → lint → test → build → scan → deploy → verify → rollback","Building a promotion-based deployment pipeline: why envs should pull from registries, not push from CI"],
+  [10,"SLOs are not targets — they are error budgets with teeth: reliability in terms teams can act on","99.9% sounds great until you calculate 43 minutes of downtime per month","Error budget burn rate chart: 14.4x, 6x, 3x, 1x burn rates with alert windows","Multi-window burn rate alerting: Google's SRE alerting strategy from scratch with Prometheus"],
+  [11,"OpenTelemetry auto-instrumentation is not magic: what the SDK does to your HTTP handlers","The trace ID that connected a slow API response to a DB query 3 services away","Distributed trace waterfall: span hierarchy across 4 services with timing and status","Correlating logs, traces, and metrics: one investigation workflow that starts from any signal"],
+  [12,"Everything I got wrong in my first 12 weeks of public engineering (retrospective)","The Week 3 article had a factual error about TCP. Here is the correction and what it taught me.","12-week contribution graph: articles, PRs, community interactions, skill progression","Month 3 architecture review: re-examining every technical decision and what I would change now"],
+  [13,"RBAC is not just access control — it is the blast radius boundary in Kubernetes","kubectl auth can-i --list shows you exactly what your service account can do","RBAC binding diagram: Users → RoleBindings → Roles → Resources with namespace boundaries","Designing least-privilege RBAC for a multi-team cluster: from deny-all to minimum viable access"],
+  [14,"Chaos engineering: hypothesis-driven failure injection with measurable outcomes","Our first GameDay revealed 3 assumptions about our system that were completely wrong","Chaos experiment flowchart: steady state → hypothesis → inject → observe → analyze → remediate","Pod-delete chaos against a stateful service: what the kill revealed about our readiness probes"],
+  [15,"The blameless postmortem is a technical document, not a feelings exercise","5 Whys fails when the answer is 'humans make mistakes' — root cause must be systemic","Incident timeline: detection → triage → mitigation → resolution with responsible party and time","Anatomy of a cascading failure: how a 2-second DNS timeout triggered a retry storm"],
+  [16,"Legacy system adoption is archaeology: safely operate what you cannot yet rewrite","First thing with any legacy system: docker stats, ss -tnap, and journalctl -u in that order","System archaeology map: documented vs discovered vs unknown interfaces","Containerizing a 10-year-old app: hidden dependencies and filesystem assumptions that broke migration"],
+  [17,"Strangler fig fails without routing-layer control: lessons from a real migration","We migrated 1 endpoint per week for 16 weeks. The router was more complex than the new service.","Strangler fig: old monolith → router → new service showing traffic % shift over time","Zero-downtime database migration: dual-write, shadow reads, and the rollback that saved us"],
+  [18,"Helm charts are contracts between platform teams and application teams","The values.yaml validation that caught a prod misconfiguration before it reached the cluster","Helm release lifecycle: install → upgrade → rollback → uninstall with hooks at each transition","Helm chart that works across dev/staging/prod without environment-specific hacks"],
+  [19,"IAM policy design is where most cloud security actually breaks","iam:PassRole is the most dangerous AWS permission that nobody talks about","IAM trust chain: user → role assumption → cross-account access → resource policy evaluation","Auditing IAM with code: scanner for overprivileged roles, stale credentials across 50+ accounts"],
+  [20,"Cloud cost optimization is an engineering discipline, not a finance exercise","The Cost Explorer filter revealing $4,200/month on unattached EBS volumes","Cost allocation: tagged vs untagged resources showing attribution gaps in a multi-team account","Automated cost anomaly detector: when daily spend > 7-day rolling average + 2σ, alert and investigate"],
+  [21,"NetworkPolicies: the firewall rules Kubernetes should have had from day one","We deployed NetworkPolicies and discovered 4 undocumented service-to-service paths","Network policy matrix: services on both axes, allow/deny at each intersection — intended vs actual","Zero-trust networking in K8s: from open cluster to explicit allow-list with Calico"],
+  [22,"StatefulSets enforce ordering guarantees that change how you design for failure","PVC naming in StatefulSets means you cannot just delete/recreate pods like Deployments","StatefulSet lifecycle: ordered creation (0→1→2), PVC retention, headless service DNS","PostgreSQL on K8s: persistent volumes, backup strategies, failover that prevented data loss"],
+  [23,"ArgoCD turns Git into source of truth — but only if you design the repo correctly","The ApplicationSet generator that manages 40 microservices from 1 ArgoCD config","GitOps flow: git push → ArgoCD sync → diff → apply → health check → status report","Multi-environment GitOps repo: directory structure, promotion strategy, the branch-per-env anti-pattern"],
+  [24,"Six months of public engineering: what I built, what broke, lessons for my Week 1 self","Most-read article was about a mistake. Most valuable article has the fewest reads.","6-month evidence dashboard: contributions, publications, community metrics, recognition events","Half-year architecture review: every ADR revisited, every assumption tested, every failure documented"],
+  [25,"Queueing theory: why your service degrades at 70% CPU, not 100% — M/M/1 behavior","At 80% utilization, average latency is 5x service time. At 90%, it is 10x. This is math.","M/M/1 queue latency curve: utilization (x) vs response time (y) — non-linear explosion above 70%","Proving Little's Law in production: measuring L, λ, W and validating L=λW within 5% error margin"],
+  [26,"Retry storms: the distributed systems feedback loop that kills your service chain","3 retries × 3 services = 27x load on the backend. The math behind every major outage.","Retry amplification: 1 → 3 → 9 → 27 requests with jitter and circuit breaker intervention","Exponential backoff with decorrelated jitter: the AWS approach and why most impls get it wrong"],
+  [27,"Amdahl's Law: why your autoscaler cannot save you — the serial bottleneck","If 10% of processing is serial, infinite parallelism gives max 10x speedup. Not infinity.","Amdahl visualization: speedup vs processors for different serial fractions (1%, 5%, 10%, 25%)","The serial bottleneck: profiling, flamegraphs, the DB lock that limited horizontal scaling to 4 pods"],
+  [28,"Circuit breakers are state machines making architectural decisions under uncertainty","The half-open state is the most important and least understood part of the pattern","Circuit breaker state machine: closed → open → half-open with transition conditions and timers","Istio outlier detection: reduced cascading failure duration from 12 minutes to 45 seconds"],
+  [29,"Kubernetes scheduler decisions are visible and auditable","kubectl get events --field-selector reason=FailedScheduling tells you exactly why pod is Pending","Scheduler decision tree: predicates (resource fit, affinity, taints) and priorities (spread, balance)","Custom scheduler profiles: topology-aware placement for latency-sensitive workloads"],
+  [30,"eBPF is rewriting the observability layer: kernel-level tracing without modules or app changes","A 3-line bpftrace script that traces every TCP retransmission with source, destination, and RTT","eBPF architecture: user space → BPF compiler → verifier → JIT → kernel hook points (kprobes, XDP)","Building a TCP retransmission monitor: detecting network problems before they reach the app layer"],
+  [31,"CAP theorem is misunderstood: you don't choose 2 of 3 — you choose what happens in a partition","Every system is already partition-tolerant by default. The real choice is C vs A during partition.","CAP matrix: PostgreSQL, DynamoDB, etcd, Cassandra, CockroachDB on the C-A spectrum","etcd and Raft: what happens when the leader fails and why the K8s control plane tolerates it"],
+  [32,"Capacity planning is modeling demand against headroom — not guessing bigger numbers","The formula predicting when your cluster needs more nodes: utilization + growth + safety + burst","Capacity planning model: demand curve with seasonality overlaid on provisioned capacity","Automated capacity planner: Prometheus history + linear regression + queueing theory safety margin"],
+  [33,"Multi-tenancy in Kubernetes is a spectrum, not a boolean","ResourceQuota and LimitRange: difference between one team's memory leak and a cluster-wide outage","Multi-tenancy layers: namespace → RBAC → NetworkPolicy → ResourceQuota → PodSecurityStandard","Shared K8s platform for 5 teams: isolation architecture, quota model, blast radius containment test"],
+  [34,"Service mesh complexity must be justified: when Istio is right and when it is theater","We added Istio for mTLS and spent 3 weeks debugging sidecar injection. The mTLS was worth it.","Service mesh decision flowchart: from 'Do you need mTLS?' to 'deploy mesh' or 'simpler alternative'","Operating Istio: sidecar overhead, upgrade strategy, control plane failure that taught us about dependency"],
+  [35,"Platform engineering: designing the interface between infra complexity and developer experience","The Backstage template that reduced new service onboarding from 2 weeks to 20 minutes","IDP architecture: Backstage catalog → template engine → CI/CD scaffold → K8s deployment → monitoring","Self-service platform developers actually use: API design, golden paths, and escape hatches"],
+  [36,"One year of public engineering: evidence portfolio, mistakes, and the compound effect","GitHub contribution graph is not impressive. Merged PRs in CNCF projects and published articles are.","12-month evidence portfolio: complete inventory of all 4 pillars mapped to recognition criteria","Year-end architecture review: comparing Week 1 thinking to Week 36 — what operations changed"],
+];
+
+const DAILY_HABITS = [
+  "Morning 15min — Read 1 GitHub issue/PR in your target CNCF project. Note problem, solution, maintainer feedback.",
+  "Morning 15min — Write 3-5 sentences in engineering journal: what you investigated, what confused you, what you'd do differently.",
+  "Midday 15min — Answer 1 question on CNCF/K8s Slack or GitHub Discussions. Reference docs or code, not opinions.",
+  "Evening 20min — Complete 1 lab (iximiuz / KodeKloud). Document: what broke, how you fixed it, underlying mechanism.",
+  "Evening 10min — Review open PRs/issues. Respond to maintainer feedback within 24 hours.",
+];
+
+const WEEKLY_TASKS = [
+  "Technical article 800+ words from current week's theme → Personal blog (canonical) + Dev.to (cross-post)",
+  "Short post 200-400 words from same week's theme → LinkedIn + Bluesky",
+  "1 technical diagram: architecture, request flow, or failure cascade → GitHub diagrams/ + LinkedIn",
+  "Open source work 60-90 min: issue, PR, review, or documentation on target CNCF project",
+  "Weekly evidence log: list every artifact, contribution, and interaction. Tag each with the pillar it serves.",
+];
+
+const OSS_STAGES = [
+  { n:1, name:"Observer", weeks:"Wks 1–4", color:"#38bdf8", actions:[
+    "Star/watch repo. Read every new issue and PR notification for 2 weeks.",
+    "Read CONTRIBUTING.md, governance docs, SIG structure, label system, PR process.",
+    "Join CNCF Slack project channel — lurk 2 weeks before posting anything.",
+    "Clone repo. Read top-level dirs. Read 3 recent merged PRs line by line.",
+    "Attend 1 community meeting. Listen only. Take notes.",
+    "Write blog post: 'What I learned from reading the codebase for 2 weeks' (demonstrates diligence, not expertise).",
+  ]},
+  { n:2, name:"Small Contributor", weeks:"Wks 5–16", color:"#f59e0b", actions:[
+    "Fix documentation errors: broken links, outdated instructions, unclear explanations. These merge quickly.",
+    "Add/improve test coverage. Mention the coverage delta in your PR description.",
+    "File detailed bug reports: steps to reproduce, expected vs actual behavior, environment, relevant logs.",
+    "Review other contributors' PRs: read the code, run tests locally, comment on specific lines.",
+    "Tackle good-first-issue and help-wanted labels. Investigate before writing code.",
+    "After each merged PR: write a short post on 1 technical insight you gained.",
+  ]},
+  { n:3, name:"Regular Contributor", weeks:"Wks 17–36", color:"#22c55e", actions:[
+    "Propose + implement a feature: issue → design doc → maintainer alignment → implementation.",
+    "Join a SIG or working group. Attend meetings regularly. Volunteer for action items.",
+    "Apply for Kubernetes Release Team Shadow (Docs, CI Signal, Bug Triage, or Enhancements).",
+    "Apply for LFX Mentorship (3-month program — 25+ alumni became CNCF maintainers).",
+    "Seek OWNERS file reviewer entry after 10+ substantive code reviews in one area.",
+    "Pitch a post to CNCF blog editorial team about a technical challenge you solved in the project.",
+  ]},
+  { n:4, name:"Recognized Contributor", weeks:"Wk 36+", color:"#a78bfa", actions:[
+    "Seek Approver or Subproject Owner status. Ask directly after 6+ months of reviews.",
+    "Mentor new contributors through first PRs. Answer questions in the project Slack.",
+    "Apply for CNCF Ambassador (requires DevStats 20+, SIG membership, 1yr community leadership).",
+    "Request 3 recommendation letters from maintainers at 3 different organizations.",
+    "Submit to KubeCon CFP. Maintainer Track requires maintainer status; General Track accepts contributors.",
+    "Nominate contributors for CNCF Community Awards. This demonstrates leadership, not just contribution.",
+  ]},
+];
+
+const EVIDENCE_PILLARS = [
+  { id:"contributions", label:"Contribution Record", icon:"🔀", color:"#22c55e", desc:"Merged PRs, issues filed, PR reviews, maintainer roles held",           q4:15, q8:"Reviewer/Approver status in 1 project" },
+  { id:"artifacts",     label:"Public Artifacts",    icon:"✍️", color:"#38bdf8", desc:"Articles, diagrams, conference talks, appearance recordings",             q4:24, q8:"48+ articles, 1+ KubeCon submission, regular speaker" },
+  { id:"relationships", label:"Community Relationships", icon:"🤝", color:"#f59e0b", desc:"Maintainer interactions, SIG membership, peer endorsements",           q4:3,  q8:"3 recommendation letters obtainable" },
+  { id:"decisions",     label:"Documented Decisions", icon:"📋", color:"#a78bfa", desc:"ADRs, incident writeups, debugging diaries, failure investigations",      q4:12, q8:"24+ documents, referenced by others" },
+];
+
+function PEPP() {
+  const [week, setWeek] = useState(1);
+  const [daily, setDaily] = useState(Array(5).fill(false));
+  const [wkly, setWkly] = useState(Array(5).fill(false));
+  const [evidence, setEvidence] = useState({contributions:0,artifacts:0,relationships:0,decisions:0});
+  const [ossStage, setOssStage] = useState(1);
+  const [loaded, setLoaded] = useState(false);
+  const [sub, setSub] = useState("schedule");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const keys = ["pepp-week","pepp-daily","pepp-wkly","pepp-evidence","pepp-oss-stage"];
+        const [w,d,wk,ev,st] = await Promise.all(keys.map(k => window.storage.get(k).catch(()=>null)));
+        if (w) setWeek(JSON.parse(w.value));
+        if (d) setDaily(JSON.parse(d.value));
+        if (wk) setWkly(JSON.parse(wk.value));
+        if (ev) setEvidence(JSON.parse(ev.value));
+        if (st) setOssStage(JSON.parse(st.value));
+      } catch {}
+      setLoaded(true);
+    })();
+  }, []);
+
+  const save = (k,v) => window.storage.set(k, JSON.stringify(v)).catch(()=>{});
+  const setWeekNum = n => { const v=Math.max(1,Math.min(36,n)); setWeek(v); save("pepp-week",v); };
+  const toggleDaily = i => { const n=daily.map((x,j)=>j===i?!x:x); setDaily(n); save("pepp-daily",n); };
+  const toggleWkly  = i => { const n=wkly.map((x,j)=>j===i?!x:x); setWkly(n); save("pepp-wkly",n); };
+  const setStage = n => { setOssStage(n); save("pepp-oss-stage",n); };
+  const updateEvidence = (key, delta) => {
+    const next = {...evidence, [key]: Math.max(0,(evidence[key]||0)+delta)};
+    setEvidence(next); save("pepp-evidence",next);
+  };
+
+  const cw = PEPP_WEEKS[week-1];
+  const phase = week<=12 ? 1 : week<=24 ? 2 : 3;
+  const phaseLabel = ["","Foundations → Intermediate","Intermediate → Advanced","Advanced → Expert / Rare Insight"][phase];
+  const SUBS = [
+    { id:"schedule", label:"📅 Schedule" },
+    { id:"content",  label:"📝 Content" },
+    { id:"oss",      label:"🔀 OSS Track" },
+    { id:"evidence", label:"📊 Evidence" },
+  ];
+  const taskCols = ["#38bdf8","#22c55e","#f59e0b","#a78bfa"];
+  const taskLabels = ["ARTICLE (800+ words)","SHORT POST (200-400 words)","VISUAL / DIAGRAM","DEEP BREAKDOWN (1500+ words, bi-weekly)"];
+  const taskPlatforms = ["Personal blog → Dev.to","LinkedIn + Bluesky","GitHub diagrams/ + LinkedIn","Personal blog + Hacker News + CNCF blog pitch"];
+
+  return (
+    <div>
+      <div style={{marginBottom:16}}>
+        <div style={{fontSize:10,color:"#64748b",letterSpacing:"0.15em"}}>PUBLIC ENGINEERING PRESENCE PROGRAM</div>
+        <div style={{fontSize:12,color:"#475569",marginTop:3,lineHeight:1.65}}>A continuous reputation operating system — 4 evidence pillars · 36-week content rotation · runs indefinitely · compounds over time.</div>
+      </div>
+      {/* Sub-tabs */}
+      <div style={{display:"flex",gap:0,borderBottom:"1px solid #1a2332",marginBottom:20}}>
+        {SUBS.map(s=>(
+          <button key={s.id} onClick={()=>setSub(s.id)}
+            style={{background:"none",border:"none",borderBottom:`2px solid ${sub===s.id?"#22c55e":"transparent"}`,color:sub===s.id?"#22c55e":"#475569",padding:"6px 14px",fontSize:11,cursor:"pointer",fontFamily:"inherit",fontWeight:sub===s.id?600:400}}>
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── SCHEDULE ── */}
+      {sub==="schedule" && (
+        <div>
+          <div style={{marginBottom:20}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <span style={{fontSize:10,color:"#22c55e",letterSpacing:"0.15em",fontWeight:600}}>DAILY HABITS (5 DAYS/WEEK · 60-90 MIN TOTAL)</span>
+              <button onClick={()=>{const r=Array(5).fill(false);setDaily(r);save("pepp-daily",r);}} style={{background:"none",border:"1px solid #1e2a3a",color:"#374151",padding:"2px 8px",borderRadius:4,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>reset</button>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:5}}>
+              {DAILY_HABITS.map((d,i)=>(
+                <div key={i} onClick={()=>toggleDaily(i)} style={{display:"flex",gap:10,alignItems:"flex-start",padding:"9px 12px",borderRadius:7,background:daily[i]?"rgba(34,197,94,0.07)":"#0b0e14",border:`1px solid ${daily[i]?"rgba(34,197,94,0.3)":"#1a2332"}`,cursor:"pointer"}}>
+                  <div style={{width:14,height:14,borderRadius:3,border:`1px solid ${daily[i]?"#22c55e":"#374151"}`,background:daily[i]?"#22c55e":"transparent",flexShrink:0,marginTop:2,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    {daily[i]&&<span style={{fontSize:9,color:"#0b0e14",fontWeight:700}}>✓</span>}
+                  </div>
+                  <span style={{fontSize:12,color:daily[i]?"#4ade80":"#94a3b8",lineHeight:1.5,textDecoration:daily[i]?"line-through":"none"}}>{d}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{marginTop:6,fontSize:10,color:"#374151",padding:"7px 10px",background:"#070a0f",borderRadius:5,border:"1px solid #1a2332",lineHeight:1.6}}>
+              Rule: Every day must produce at least one of: journal entry · community interaction · contribution update. Days that produce nothing are wasted in the reputation system.
+            </div>
+          </div>
+          <div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <span style={{fontSize:10,color:"#38bdf8",letterSpacing:"0.15em",fontWeight:600}}>WEEKLY DELIVERABLES (SAT/SUN · 3-4 HRS)</span>
+              <button onClick={()=>{const r=Array(5).fill(false);setWkly(r);save("pepp-wkly",r);}} style={{background:"none",border:"1px solid #1e2a3a",color:"#374151",padding:"2px 8px",borderRadius:4,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>reset</button>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:5}}>
+              {WEEKLY_TASKS.map((t,i)=>(
+                <div key={i} onClick={()=>toggleWkly(i)} style={{display:"flex",gap:10,alignItems:"flex-start",padding:"9px 12px",borderRadius:7,background:wkly[i]?"rgba(56,189,248,0.07)":"#0b0e14",border:`1px solid ${wkly[i]?"rgba(56,189,248,0.3)":"#1a2332"}`,cursor:"pointer"}}>
+                  <div style={{width:14,height:14,borderRadius:3,border:`1px solid ${wkly[i]?"#38bdf8":"#374151"}`,background:wkly[i]?"#38bdf8":"transparent",flexShrink:0,marginTop:2,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    {wkly[i]&&<span style={{fontSize:9,color:"#0b0e14",fontWeight:700}}>✓</span>}
+                  </div>
+                  <span style={{fontSize:12,color:wkly[i]?"#7dd3fc":"#94a3b8",lineHeight:1.5,textDecoration:wkly[i]?"line-through":"none"}}>{t}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CONTENT ROTATION ── */}
+      {sub==="content" && (
+        <div>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,padding:"14px 16px",background:"rgba(255,255,255,0.02)",border:"1px solid #1a2332",borderRadius:10}}>
+            <button onClick={()=>setWeekNum(week-1)} style={{background:"rgba(255,255,255,0.04)",border:"1px solid #1e2a3a",color:"#94a3b8",width:32,height:32,borderRadius:6,cursor:"pointer",fontSize:18,fontFamily:"inherit"}}>‹</button>
+            <div style={{flex:1,textAlign:"center"}}>
+              <div style={{fontSize:24,fontWeight:700,color:"#f8fafc"}}>Week {week}</div>
+              <div style={{fontSize:9,color:"#64748b",letterSpacing:"0.1em",marginTop:2}}>PHASE {phase} — {phaseLabel.toUpperCase()}</div>
+            </div>
+            <button onClick={()=>setWeekNum(week+1)} style={{background:"rgba(255,255,255,0.04)",border:"1px solid #1e2a3a",color:"#94a3b8",width:32,height:32,borderRadius:6,cursor:"pointer",fontSize:18,fontFamily:"inherit"}}>›</button>
+          </div>
+          <div style={{marginBottom:16}}>
+            <div style={{height:5,background:"#1a2332",borderRadius:3,overflow:"hidden"}}>
+              <div style={{height:"100%",width:`${(week/36)*100}%`,background:"linear-gradient(90deg,#22c55e,#38bdf8)",borderRadius:3,transition:"width 0.3s"}}/>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:"#374151",marginTop:3}}>
+              <span>Week {week} of 36</span><span>{Math.round((week/36)*100)}% complete</span>
+            </div>
+          </div>
+          {cw && (
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {[1,2,3,4].map(i=>(
+                <div key={i} style={{padding:"12px 14px",background:`${taskCols[i-1]}08`,border:`1px solid ${taskCols[i-1]}25`,borderRadius:8}}>
+                  <div style={{fontSize:9,color:taskCols[i-1],letterSpacing:"0.15em",fontWeight:600,marginBottom:5}}>{taskLabels[i-1]}</div>
+                  <div style={{fontSize:13,color:"#cbd5e1",lineHeight:1.6,marginBottom:4}}>{cw[i]}</div>
+                  <div style={{fontSize:10,color:"#475569"}}>→ {taskPlatforms[i-1]}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{marginTop:12,fontSize:11,color:"#374151",padding:"9px 12px",background:"#070a0f",borderRadius:6,border:"1px solid #1a2332",lineHeight:1.6}}>
+            After Week 36, return to Week 1 at higher depth. Cycle 1: explain the concept. Cycle 2: original benchmarking. Cycle 3: propose ecosystem improvements. The topic is the same — the authority increases with every rotation.
+          </div>
+        </div>
+      )}
+
+      {/* ── OSS TRACK ── */}
+      {sub==="oss" && (
+        <div>
+          <div style={{display:"flex",gap:6,marginBottom:20}}>
+            {OSS_STAGES.map(st=>(
+              <button key={st.n} onClick={()=>setStage(st.n)}
+                style={{flex:1,padding:"9px 4px",background:ossStage===st.n?`${st.color}12`:"rgba(255,255,255,0.02)",border:`1px solid ${ossStage===st.n?st.color+"50":"#1a2332"}`,borderRadius:7,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                <div style={{fontSize:14,color:ossStage===st.n?st.color:"#374151",marginBottom:2}}>{"●".repeat(st.n)}</div>
+                <div style={{fontSize:9,color:ossStage===st.n?st.color:"#374151",letterSpacing:"0.05em",fontWeight:ossStage===st.n?600:400}}>{st.name}</div>
+                <div style={{fontSize:8,color:"#374151"}}>{st.weeks}</div>
+              </button>
+            ))}
+          </div>
+          {(() => {
+            const st = OSS_STAGES[ossStage-1];
+            return (
+              <div style={{background:`${st.color}07`,border:`1px solid ${st.color}25`,borderRadius:10,padding:"14px 16px"}}>
+                <div style={{fontSize:10,fontWeight:700,color:st.color,letterSpacing:"0.12em",marginBottom:12}}>STAGE {st.n}: {st.name.toUpperCase()} — {st.weeks}</div>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {st.actions.map((a,i)=>(
+                    <div key={i} style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                      <div style={{width:20,height:20,borderRadius:5,background:`${st.color}18`,border:`1px solid ${st.color}35`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:st.color,flexShrink:0,fontWeight:600}}>{i+1}</div>
+                      <span style={{fontSize:12,color:"#94a3b8",lineHeight:1.6}}>{a}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+          <div style={{marginTop:12,fontSize:11,color:"#374151",padding:"9px 12px",background:"#070a0f",borderRadius:6,border:"1px solid #1a2332",lineHeight:1.6}}>
+            <strong style={{color:"#64748b"}}>Project selection:</strong> Start with ONE project. Depth = maintainer relationships. Breadth across many = nothing recognizable. Recommended targets: Prometheus · OpenTelemetry · Argo CD · Falco · LitmusChaos · Backstage
+          </div>
+        </div>
+      )}
+
+      {/* ── EVIDENCE DASHBOARD ── */}
+      {sub==="evidence" && (
+        <div>
+          <div style={{fontSize:10,color:"#64748b",letterSpacing:"0.15em",marginBottom:14}}>EVIDENCE PILLAR COUNTERS — UPDATE WEEKLY</div>
+          <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:24}}>
+            {EVIDENCE_PILLARS.map(p=>{
+              const count=evidence[p.id]||0;
+              const pct=Math.min(100,Math.round((count/p.q4)*100));
+              return (
+                <div key={p.id} style={{padding:"12px 14px",background:`${p.color}06`,border:`1px solid ${p.color}20`,borderRadius:10}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                    <span style={{fontSize:13,fontWeight:600,color:"#cbd5e1"}}>{p.icon} {p.label}</span>
+                    <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                      <button onClick={()=>updateEvidence(p.id,-1)} style={{background:"rgba(255,255,255,0.04)",border:"1px solid #1e2a3a",color:"#64748b",width:26,height:26,borderRadius:4,cursor:"pointer",fontSize:15,fontFamily:"inherit",lineHeight:1}}>−</button>
+                      <span style={{fontSize:20,fontWeight:700,color:p.color,minWidth:40,textAlign:"center"}}>{count}</span>
+                      <button onClick={()=>updateEvidence(p.id,1)} style={{background:`${p.color}15`,border:`1px solid ${p.color}40`,color:p.color,width:26,height:26,borderRadius:4,cursor:"pointer",fontSize:15,fontFamily:"inherit",lineHeight:1}}>+</button>
+                    </div>
+                  </div>
+                  <div style={{fontSize:11,color:"#475569",marginBottom:7}}>{p.desc}</div>
+                  <div style={{height:4,background:"#1a2332",borderRadius:2,overflow:"hidden",marginBottom:4}}>
+                    <div style={{height:"100%",width:`${pct}%`,background:p.color,borderRadius:2,transition:"width 0.3s"}}/>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:"#374151"}}>
+                    <span>{pct}% to Q4 target ({p.q4})</span>
+                    <span>Q8 goal: {p.q8}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{fontSize:10,color:"#64748b",letterSpacing:"0.15em",marginBottom:10}}>GTV RECOGNITION TIMELINE</div>
+          {[
+            {t:"Months 1–6",   l:"Known contributor in 1 project. Published writer in cloud-native space.",                   ev:"10+ PRs · 18+ articles · DevStats presence · Known to maintainers"},
+            {t:"Months 7–12",  l:"Regular contributor approaching reviewer. Regional speaker. Exceptional Promise eligible.",  ev:"25+ PRs · 36+ articles · 3+ talks · 3 recommendation letters obtainable"},
+            {t:"Months 13–18", l:"Reviewer/Approver in 1+ projects. Regular speaker. Community leader in specific area.",     ev:"Formal governance role · 50+ articles · SIG/TAG participation · CNCF blog"},
+            {t:"Months 19–24", l:"CNCF Ambassador eligible. Strong Exceptional Talent case.",                                 ev:"Ambassador app ready · KubeCon submission · DevStats 20+ · multiple editorial publications"},
+            {t:"Months 25–36", l:"Established authority. Multiple governance roles. International recognition.",              ev:"Ambassador status · Maintainer consideration · Regular KubeCon speaker · Cited by peers"},
+          ].map((r,i)=>(
+            <div key={i} style={{display:"flex",gap:12,padding:"10px 12px",background:"rgba(255,255,255,0.02)",border:"1px solid #1a2332",borderRadius:7,marginBottom:6}}>
+              <div style={{width:82,flexShrink:0}}><div style={{fontSize:10,color:"#a78bfa",fontWeight:600}}>{r.t}</div></div>
+              <div>
+                <div style={{fontSize:12,color:"#94a3b8",lineHeight:1.5,marginBottom:3}}>{r.l}</div>
+                <div style={{fontSize:10,color:"#475569"}}>{r.ev}</div>
+              </div>
+            </div>
+          ))}
+          <div style={{marginTop:12,fontSize:11,color:"#64748b",padding:"10px 12px",background:"#070a0f",borderRadius:6,border:"1px solid rgba(167,139,250,0.2)",lineHeight:1.65}}>
+            ⚠️ <strong style={{color:"#94a3b8"}}>Critical GTV timing note:</strong> Tech Nation flags applications where activity spikes dramatically in the 6 months before applying. This program's continuous cadence prevents that pattern. Begin evidence collection from Day 1. Screenshot everything. Archive every published article. Save every merged PR notification. The evidence you forget to save in Month 3 is the evidence you cannot produce in Month 18.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PasswordGate({ onUnlock }) {
+  const [val, setVal] = useState("");
+  const [err, setErr] = useState(false);
+  const [show, setShow] = useState(false);
+  const check = () => {
+    if (val.trim().toLowerCase() === PASS.toLowerCase()) { onUnlock(); }
+    else { setErr(true); setTimeout(() => setErr(false), 1500); setVal(""); }
+  };
+  return (
+    <div style={{ minHeight:"100vh", background:"#060a0f", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'JetBrains Mono','Fira Code',monospace" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');*{box-sizing:border-box;margin:0;padding:0}input{outline:none}`}</style>
+      <div style={{ textAlign:"center", padding:"40px 24px", maxWidth:380 }}>
+        <div style={{ fontFamily:"'Space Grotesk',sans-serif", fontSize:13, color:"#22c55e", letterSpacing:"0.3em", marginBottom:8 }}>DAY ZERO // MISSION CONTROL</div>
+        <div style={{ fontFamily:"'Space Grotesk',sans-serif", fontSize:26, fontWeight:700, color:"#f8fafc", marginBottom:6, letterSpacing:"-0.02em" }}>@donaldraph</div>
+        <div style={{ fontSize:11, color:"#374151", marginBottom:36, letterSpacing:"0.1em" }}>RESTRICTED ACCESS</div>
+        <div style={{ position:"relative", marginBottom:12 }}>
+          <input
+            type={show ? "text" : "password"}
+            value={val}
+            onChange={e => setVal(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && check()}
+            placeholder="enter password"
+            style={{ width:"100%", background:"#0d1117", border:`1px solid ${err ? "#ef4444" : "#1e2a3a"}`, color:"#e2e8f0", padding:"12px 44px 12px 16px", borderRadius:8, fontSize:14, fontFamily:"inherit", transition:"border-color 0.2s" }}
+          />
+          <button onClick={() => setShow(s => !s)} style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:"#374151", cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>
+            {show ? "hide" : "show"}
+          </button>
+        </div>
+        {err && <div style={{ color:"#ef4444", fontSize:11, marginBottom:8, letterSpacing:"0.05em" }}>incorrect password</div>}
+        <button onClick={check} style={{ width:"100%", background:"rgba(34,197,94,0.12)", border:"1px solid rgba(34,197,94,0.4)", color:"#22c55e", padding:"12px", borderRadius:8, fontSize:13, fontFamily:"inherit", fontWeight:600, cursor:"pointer", letterSpacing:"0.1em" }}>
+          UNLOCK
+        </button>
+        <div style={{ marginTop:20, fontSize:10, color:"#1e2a3a", letterSpacing:"0.1em" }}>change PASS const in source to update</div>
+      </div>
+    </div>
+  );
+}
+
+function MissionControl() {
+  const [items, setItems] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const [cat, setCat] = useState("All");
+  const [statusF, setStatusF] = useState("All");
+  const [search, setSearch] = useState("");
+  const [showDone, setShowDone] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [form, setForm] = useState({ text:"", status:"PLANNING", category:"Career" });
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await window.storage.get("mc-items-v3");
+        setItems(r ? JSON.parse(r.value) : SEED);
+      } catch { setItems(SEED); }
+      setLoaded(true);
+    })();
+  }, []);
+  useEffect(() => {
+    if (loaded) window.storage.set("mc-items-v3", JSON.stringify(items)).catch(() => {});
+  }, [items, loaded]);
+  useEffect(() => { if (adding && inputRef.current) inputRef.current.focus(); }, [adding]);
+
+  const save = () => {
+    if (!form.text.trim()) return;
+    if (editId) {
+      setItems(p => p.map(i => i.id === editId ? { ...i, ...form } : i));
+      setEditId(null);
+    } else {
+      setItems(p => [...p, { ...form, id: gid(), pinned: false }]);
+    }
+    setForm({ text:"", status:"PLANNING", category:"Career" });
+    setAdding(false);
+  };
+  const startEdit = item => { setForm({ text:item.text, status:item.status, category:item.category }); setEditId(item.id); setAdding(true); };
+  const togglePin = id => setItems(p => p.map(i => i.id === id ? { ...i, pinned: !i.pinned } : i));
+  const cycleStatus = id => {
+    setItems(p => p.map(i => {
+      if (i.id !== id) return i;
+      const idx = STATUS_ORDER.indexOf(i.status);
+      return { ...i, status: STATUS_ORDER[(idx + 1) % STATUS_ORDER.length] };
+    }));
+  };
+  const remove = id => setItems(p => p.filter(i => i.id !== id));
+  const cancel = () => { setAdding(false); setEditId(null); setForm({ text:"", status:"PLANNING", category:"Career" }); };
+
+  const visible = items.filter(i => {
+    if (!showDone && i.status === "DONE") return false;
+    if (cat !== "All" && i.category !== cat) return false;
+    if (statusF !== "All" && i.status !== statusF) return false;
+    if (search && !i.text.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+  const grouped = {};
+  STATUS_ORDER.forEach(s => { grouped[s] = []; });
+  visible.forEach(i => { if (grouped[i.status]) grouped[i.status].push(i); });
+  Object.keys(grouped).forEach(s => grouped[s].sort((a,b) => (b.pinned?1:0)-(a.pinned?1:0)));
+  const counts = {};
+  STATUS_ORDER.forEach(s => { counts[s] = items.filter(i => i.status === s).length; });
+
+  return (
+    <div>
+      {/* Stats */}
+      <div style={{ display:"flex", gap:8, marginBottom:16, overflowX:"auto", paddingBottom:4 }}>
+        {STATUS_ORDER.map(k => (
+          <div key={k} onClick={() => setStatusF(statusF === k ? "All" : k)}
+            style={{ background: statusF===k ? S[k].bg : "rgba(255,255,255,0.02)", border:`1px solid ${statusF===k ? S[k].color+"50" : "#1a2332"}`, borderRadius:8, padding:"8px 12px", cursor:"pointer", minWidth:"fit-content", transition:"all 0.15s" }}>
+            <div style={{ fontSize:18, fontWeight:700, color:S[k].color, lineHeight:1 }}>{counts[k]||0}</div>
+            <div style={{ fontSize:9, color:"#64748b", marginTop:2, letterSpacing:"0.1em" }}>{S[k].label.toUpperCase()}</div>
+          </div>
+        ))}
+      </div>
+      {/* Filters */}
+      <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center", marginBottom:16 }}>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="search..."
+          style={{ background:"#111827", border:"1px solid #1e2a3a", color:"#e2e8f0", padding:"6px 12px", borderRadius:6, fontSize:12, fontFamily:"inherit", width:150 }} />
+        <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+          {CATS.map(c => (
+            <button key={c} onClick={() => setCat(c)}
+              style={{ background: cat===c ? "#1e3a5f" : "rgba(255,255,255,0.02)", border:`1px solid ${cat===c ? "#38bdf8" : "#1a2332"}`, color: cat===c ? "#38bdf8" : "#64748b", padding:"4px 10px", borderRadius:5, fontSize:10, cursor:"pointer", fontFamily:"inherit", letterSpacing:"0.05em" }}>
+              {c}
+            </button>
+          ))}
+        </div>
+        <button onClick={() => setShowDone(s => !s)}
+          style={{ background: showDone ? "rgba(74,222,128,0.08)" : "rgba(255,255,255,0.02)", border:`1px solid ${showDone?"#4ade80":"#1a2332"}`, color: showDone?"#4ade80":"#475569", padding:"4px 10px", borderRadius:5, fontSize:10, cursor:"pointer", fontFamily:"inherit" }}>
+          {showDone?"✓ Done":"Done"}
+        </button>
+        <button onClick={() => { setAdding(true); setEditId(null); setForm({ text:"", status:"PLANNING", category:"Career" }); }}
+          style={{ marginLeft:"auto", background:"rgba(34,197,94,0.1)", border:"1px solid rgba(34,197,94,0.3)", color:"#22c55e", padding:"6px 14px", borderRadius:6, fontSize:12, cursor:"pointer", fontFamily:"inherit", fontWeight:600 }}>
+          + Add Item
+        </button>
+      </div>
+      {/* Add/Edit Form */}
+      {adding && (
+        <div style={{ background:"#111827", border:"1px solid rgba(34,197,94,0.3)", borderRadius:10, padding:16, marginBottom:16 }}>
+          <div style={{ fontSize:10, color:"#22c55e", marginBottom:10, letterSpacing:"0.15em" }}>{editId ? "EDIT ITEM" : "NEW ITEM"}</div>
+          <textarea ref={inputRef} value={form.text} onChange={e => setForm(f => ({ ...f, text:e.target.value }))}
+            onKeyDown={e => { if (e.key==="Enter"&&!e.shiftKey){e.preventDefault();save();} if(e.key==="Escape")cancel(); }}
+            placeholder="What are you doing, building, learning, applying for, planning..." rows={2}
+            style={{ width:"100%", background:"#0b0e14", border:"1px solid #1e2a3a", color:"#e2e8f0", padding:"10px 12px", borderRadius:6, fontSize:13, fontFamily:"inherit", resize:"vertical", marginBottom:10 }} />
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+            <select value={form.status} onChange={e => setForm(f => ({ ...f, status:e.target.value }))}
+              style={{ background:"#0b0e14", border:"1px solid #1e2a3a", color:S[form.status]?.color||"#e2e8f0", padding:"6px 10px", borderRadius:6, fontSize:12, fontFamily:"inherit" }}>
+              {STATUS_ORDER.map(k => <option key={k} value={k}>{S[k].label}</option>)}
+            </select>
+            <select value={form.category} onChange={e => setForm(f => ({ ...f, category:e.target.value }))}
+              style={{ background:"#0b0e14", border:"1px solid #1e2a3a", color:"#94a3b8", padding:"6px 10px", borderRadius:6, fontSize:12, fontFamily:"inherit" }}>
+              {CATS.filter(c => c!=="All").map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <button onClick={save} style={{ background:"rgba(34,197,94,0.15)", border:"1px solid #22c55e", color:"#22c55e", padding:"6px 16px", borderRadius:6, fontSize:12, cursor:"pointer", fontFamily:"inherit", fontWeight:600 }}>
+              {editId ? "Update" : "Add"}
+            </button>
+            <button onClick={cancel} style={{ background:"transparent", border:"1px solid #1e2a3a", color:"#64748b", padding:"6px 14px", borderRadius:6, fontSize:12, cursor:"pointer", fontFamily:"inherit" }}>Cancel</button>
+            <span style={{ fontSize:10, color:"#374151", marginLeft:"auto" }}>Enter = save · Esc = cancel</span>
+          </div>
+        </div>
+      )}
+      {/* Grouped Items */}
+      {STATUS_ORDER.map(sk => {
+        if (!showDone && sk === "DONE") return null;
+        const grp = grouped[sk];
+        if (!grp.length) return null;
+        return (
+          <div key={sk} style={{ marginBottom:28 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+              <div style={{ width:7, height:7, borderRadius:"50%", background:S[sk].color, flexShrink:0, ...(sk==="DOING"?{animation:"pulse 2s infinite"}:{}) }} />
+              <span style={{ fontSize:10, letterSpacing:"0.2em", color:S[sk].color, fontWeight:600 }}>{S[sk].label.toUpperCase()}</span>
+              <span style={{ fontSize:10, color:"#374151" }}>— {grp.length}</span>
+              <div style={{ flex:1, height:1, background:S[sk].color+"18" }} />
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+              {grp.map(item => (
+                <div key={item.id} className="item-row"
+                  style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"10px 12px", borderRadius:8, background:item.pinned ? S[sk].bg : "rgba(255,255,255,0.015)", border:`1px solid ${item.pinned ? S[sk].color+"30" : "#0f1724"}` }}>
+                  <div style={{ width:3, borderRadius:2, background:S[sk].color, alignSelf:"stretch", flexShrink:0, opacity:0.6 }} />
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, color:item.status==="DONE"?"#475569":"#cbd5e1", lineHeight:1.55, textDecoration:item.status==="DONE"?"line-through":"none" }}>
+                      {item.pinned && <span style={{ color:S[sk].color, fontSize:10, marginRight:6 }}>★</span>}
+                      {item.text}
+                    </div>
+                    <span style={{ display:"inline-block", marginTop:4, fontSize:9, color:"#374151", background:"#0f1724", padding:"1px 6px", borderRadius:3, letterSpacing:"0.08em" }}>{item.category}</span>
+                  </div>
+                  <div className="actions" style={{ display:"flex", gap:4, opacity:0, flexShrink:0 }}>
+                    <button onClick={() => togglePin(item.id)} title="Pin" style={{ background:"none", border:"none", cursor:"pointer", color:item.pinned?S[sk].color:"#374151", fontSize:13, padding:"2px 4px" }}>★</button>
+                    <button onClick={() => cycleStatus(item.id)} title="Cycle status" style={{ background:"none", border:"none", cursor:"pointer", color:"#374151", fontSize:11, padding:"2px 4px" }}>⟳</button>
+                    <button onClick={() => startEdit(item)} title="Edit" style={{ background:"none", border:"none", cursor:"pointer", color:"#374151", fontSize:11, padding:"2px 4px" }}>✎</button>
+                    <button onClick={() => remove(item.id)} title="Remove" style={{ background:"none", border:"none", cursor:"pointer", color:"#374151", fontSize:11, padding:"2px 4px" }}>×</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+      {visible.length === 0 && (
+        <div style={{ textAlign:"center", padding:"60px 0", color:"#374151", fontSize:13 }}>No items match filters.</div>
+      )}
+    </div>
+  );
+}
+
+function SRERoadmap() {
+  const [phaseStates, setPhaseStates] = useState({});
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await window.storage.get("sre-phase-states");
+        if (r) setPhaseStates(JSON.parse(r.value));
+      } catch {}
+    })();
+  }, []);
+  const toggleCert = (phaseN, certName) => {
+    setPhaseStates(prev => {
+      const key = `${phaseN}-${certName}`;
+      const next = { ...prev, [key]: !prev[key] };
+      window.storage.set("sre-phase-states", JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  };
+  const certsDone = Object.values(phaseStates).filter(Boolean).length;
+  const totalCerts = PHASES.reduce((a,p) => a + p.certs.length, 0);
+  const phaseColors = ["#22c55e","#38bdf8","#a78bfa","#f59e0b","#fb923c","#e879f9","#ef4444"];
+
+  return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+        <div>
+          <div style={{ fontSize:10, color:"#64748b", letterSpacing:"0.15em" }}>SRE CERTIFICATION ROADMAP</div>
+          <div style={{ fontSize:13, color:"#94a3b8", marginTop:2 }}>7 phases · {totalCerts} certifications · ${TOTAL_COST.toLocaleString()} total est. cost</div>
+        </div>
+        <div style={{ textAlign:"right" }}>
+          <div style={{ fontSize:22, fontWeight:700, color:"#22c55e" }}>{certsDone}/{totalCerts}</div>
+          <div style={{ fontSize:9, color:"#64748b", letterSpacing:"0.1em" }}>COMPLETED</div>
+        </div>
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+        {PHASES.map((phase, pi) => {
+          const col = phaseColors[pi % phaseColors.length];
+          const phaseDone = phase.certs.filter(c => c.done || phaseStates[`${phase.n}-${c.name}`]).length;
+          return (
+            <div key={phase.n} style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${col}25`, borderRadius:10, padding:"14px 16px" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <div style={{ width:24, height:24, borderRadius:6, background:`${col}20`, border:`1px solid ${col}40`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:col }}>
+                    {phase.n}
+                  </div>
+                  <span style={{ fontSize:13, fontWeight:600, color:"#cbd5e1" }}>{phase.title}</span>
+                </div>
+                <div style={{ fontSize:11, color:col }}>{phaseDone}/{phase.certs.length}</div>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                {phase.certs.map(cert => {
+                  const isDone = cert.done || phaseStates[`${phase.n}-${cert.name}`];
+                  return (
+                    <div key={cert.name} onClick={() => !cert.done && toggleCert(phase.n, cert.name)}
+                      style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 10px", borderRadius:6, background: isDone ? `${col}12` : "#0b0e14", border:`1px solid ${isDone ? col+"40" : "#1a2332"}`, cursor:cert.done?"default":"pointer" }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                        <div style={{ width:14, height:14, borderRadius:3, border:`1px solid ${isDone ? col : "#374151"}`, background:isDone ? col : "transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                          {isDone && <span style={{ color:"#0b0e14", fontSize:9, fontWeight:700 }}>✓</span>}
+                        </div>
+                        <span style={{ fontSize:12, color:isDone?"#64748b":"#94a3b8", textDecoration:isDone?"line-through":"none" }}>{cert.name}</span>
+                      </div>
+                      <span style={{ fontSize:11, color:"#374151" }}>${cert.cost}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ marginTop:16, padding:"12px 16px", background:"rgba(34,197,94,0.05)", border:"1px solid rgba(34,197,94,0.15)", borderRadius:8, fontSize:11, color:"#64748b", lineHeight:1.7 }}>
+        💡 <strong style={{ color:"#94a3b8" }}>Funding paths:</strong> CNCF Community Group (5 free vouchers/yr) · LiFT Scholarship · AWS Community Builder credits · Cloud Club Captain vouchers · KubeCon Dan Kohn Scholarship ($1,500 travel + free registration) · MongoDB/GitHub free vouchers already secured.
+      </div>
+    </div>
+  );
+}
+
+function PriorityIntel() {
+  return (
+    <div>
+      <div style={{ fontSize:10, color:"#64748b", letterSpacing:"0.15em", marginBottom:4 }}>STRATEGIC RECOMMENDATIONS</div>
+      <div style={{ fontSize:13, color:"#64748b", marginBottom:24, lineHeight:1.6 }}>
+        Honest prioritization based on your goals, deadlines, and the full document stack. This is what I'd do if I were running your timeline.
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+        {INTEL.map((tier, ti) => (
+          <div key={ti} style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${tier.col}25`, borderRadius:10, padding:"14px 16px" }}>
+            <div style={{ fontSize:11, fontWeight:700, color:tier.col, letterSpacing:"0.05em", marginBottom:12 }}>{tier.tier}</div>
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {tier.items.map((item, i) => (
+                <div key={i} style={{ display:"flex", gap:10, padding:"8px 10px", background:"#0b0e14", borderRadius:6, border:"1px solid #0f1724" }}>
+                  <div style={{ width:4, borderRadius:2, background:tier.col, opacity:0.6, flexShrink:0, alignSelf:"stretch" }} />
+                  <span style={{ fontSize:12, color:"#94a3b8", lineHeight:1.6 }}>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Education() {
+  return (
+    <div>
+      <div style={{ fontSize:10, color:"#64748b", letterSpacing:"0.15em", marginBottom:20 }}>EDUCATION PATHWAY</div>
+
+      {/* Sequence Banner */}
+      <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:24, padding:"12px 16px", background:"rgba(56,189,248,0.05)", border:"1px solid rgba(56,189,248,0.2)", borderRadius:8, flexWrap:"wrap" }}>
+        {["Unizik B.Sc. CS (now)","→","WGU B.S. Cloud (when stable income)","→","Georgia Tech OMSCS"].map((s, i) => (
+          <span key={i} style={{ fontSize:s==="→"?16:12, color:s==="→"?"#1e3a5f":"#94a3b8", fontWeight:s==="→"?"":"500" }}>{s}</span>
+        ))}
+      </div>
+
+      {/* WGU */}
+      <div style={{ marginBottom:24 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
+          <div>
+            <div style={{ fontSize:15, fontWeight:700, color:"#f59e0b" }}>WGU</div>
+            <div style={{ fontSize:12, color:"#94a3b8", marginTop:2 }}>B.S. Cloud and Network Engineering</div>
+          </div>
+          <span style={{ fontSize:10, color:"#f59e0b", background:"rgba(245,158,11,0.1)", border:"1px solid rgba(245,158,11,0.3)", padding:"3px 8px", borderRadius:4 }}>FUTURE</span>
+        </div>
+        <div style={{ fontSize:11, color:"#64748b", marginBottom:10 }}>18 INDUSTRY CERTIFICATIONS INCLUDED IN THE DEGREE TUITION:</div>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+          {WGU_CERTS.map(c => (
+            <span key={c} style={{ fontSize:10, color:"#94a3b8", background:"rgba(245,158,11,0.06)", border:"1px solid rgba(245,158,11,0.15)", padding:"3px 8px", borderRadius:4 }}>{c}</span>
+          ))}
+        </div>
+        <div style={{ marginTop:10, fontSize:11, color:"#64748b", lineHeight:1.6, padding:"8px 12px", background:"#0b0e14", borderRadius:6, border:"1px solid #1a2332" }}>
+          💡 WGU is self-paced and competency-based — if you already know the material you can finish faster. The cert bundle effectively makes tuition cost-negative vs buying them individually. Strong foundation for the OMSCS application.
+        </div>
+      </div>
+
+      {/* Georgia Tech OMSCS */}
+      <div>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
+          <div>
+            <div style={{ fontSize:15, fontWeight:700, color:"#a78bfa" }}>Georgia Tech OMSCS</div>
+            <div style={{ fontSize:12, color:"#94a3b8", marginTop:2 }}>M.S. Computer Science — Systems Specialization (recommended)</div>
+          </div>
+          <span style={{ fontSize:10, color:"#a78bfa", background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.3)", padding:"3px 8px", borderRadius:4 }}>FUTURE</span>
+        </div>
+        <div style={{ fontSize:11, color:"#64748b", marginBottom:10 }}>RECOMMENDED COURSE SELECTION FOR YOUR PROFILE:</div>
+        <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+          {GT_COURSES.map(c => {
+            const pCol = c.priority==="⭐ Must" ? "#22c55e" : c.priority==="High" ? "#38bdf8" : c.priority==="Medium" ? "#f59e0b" : "#64748b";
+            return (
+              <div key={c.code} style={{ display:"flex", gap:12, alignItems:"flex-start", padding:"10px 12px", background:"rgba(255,255,255,0.02)", border:`1px solid ${pCol}20`, borderRadius:8 }}>
+                <div style={{ flexShrink:0, width:80 }}>
+                  <div style={{ fontSize:10, color:"#64748b", letterSpacing:"0.05em" }}>{c.code}</div>
+                </div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:12, color:"#cbd5e1", fontWeight:500 }}>{c.name}</div>
+                  <div style={{ fontSize:11, color:"#64748b", marginTop:2 }}>{c.note}</div>
+                </div>
+                <span style={{ fontSize:9, color:pCol, background:`${pCol}15`, border:`1px solid ${pCol}30`, padding:"2px 7px", borderRadius:4, flexShrink:0, whiteSpace:"nowrap" }}>{c.priority}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ marginTop:12, fontSize:11, color:"#64748b", lineHeight:1.7, padding:"10px 12px", background:"#0b0e14", borderRadius:6, border:"1px solid #1a2332" }}>
+          💡 <strong style={{ color:"#94a3b8" }}>Systems specialization</strong> requires 3 courses from the Systems list — CS 6200, CS 6250, and CS 7210 are your core three. The OMSCS is part-time friendly (~2 courses/semester) and costs ~$7,000 total. Apply after WGU graduation or once you have strong professional experience. NEXUS + ARES are already good application material.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 9-MONTH SRE ROADMAP ─────────────────────────────────────────────────────
+const PLAYBOOK_MONTHS = [
+  {key:"1",    label:"Month 1",      title:"Linux Foundations & How Computers Actually Work", color:"#22c55e"},
+  {key:"2",    label:"Month 2",      title:"Containers, Docker Internals & Cloud Fundamentals", color:"#38bdf8"},
+  {key:"3",    label:"Month 3",      title:"Observability: Metrics, Traces & Systems Math", color:"#f59e0b"},
+  {key:"45",   label:"Months 4-5",   title:"Failure Engineering & Migration", color:"#a78bfa"},
+  {key:"67",   label:"Months 6-7",   title:"Advanced Infrastructure & Platform Engineering", color:"#fb923c"},
+  {key:"89",   label:"Months 8-9",   title:"Capstone & Career Launch", color:"#f472b6"},
+  {key:"1011", label:"Months 10-11", title:"Advanced Specializations", color:"#64748b"},
+];
+
+const PLAYBOOK_WEEKS = [{"id":"1","title":"Process Model & Resource Investigation","goal":"","days":[{"day":"Mon","topic":"Processes and the Kernel","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Tue","topic":"Memory: Virtual, Physical, and the OOM Killer","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Wed","topic":"Disk I/O and Filesystem","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Thu","topic":"Network Fundamentals: Packets and Connections","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Fri","topic":"System Monitoring Integration","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Sat","topic":"Mini Project: Server Health Dashboard","sessions":[],"comp":""},{"day":"Sun","topic":"Documentation & Reflection","sessions":[],"comp":"Can you do this? Set a 5-minute timer. Given uptime, vmstat 1 3, free -m, iostat -x 1 3, and ss -s output, identify whether a server's bottleneck is CPU, memory, disk, or network. If you cannot do this in under 5 minutes, repeat Friday's exercises."}],"comp":"Can you do this? Set a 5-minute timer. Given uptime, vmstat 1 3, free -m, iostat -x 1 3, and ss -s output, identify whether a server's bottleneck is CPU, memory, disk, or network. If you cannot do this in under 5 minutes, repeat Friday's exercises.","mk":"1"},{"id":"2","title":"Log Investigation & Bash Automation","goal":"","days":[{"day":"Mon","topic":"Log Analysis Fundamentals","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: Generate and Analyze Application Logs","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Tue","topic":"awk, sed, and Text Processing Power","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Wed","topic":"Bash Scripting: Control Flow & Error Handling","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: Build a Service Health Checker","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Thu","topic":"Bash Advanced: Traps, Temp Files, and Automation","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Fri","topic":"Systems Math: Percentiles and the Lies of Averages","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Sat","topic":"Mini Project: Combined System Investigation Tool","sessions":[],"comp":""},{"day":"Sun","topic":"Documentation & Reflection","sessions":[],"comp":"Given a 10,000-line JSON log file, can you calculate p95 latency, error rate, and top error sources in under 3 minutes using only CLI tools (jq, awk, sort, uniq)?"}],"comp":"Given a 10,000-line JSON log file, can you calculate p95 latency, error rate, and top error sources in under 3 minutes using only CLI tools (jq, awk, sort, uniq)?","mk":"1"},{"id":"3","title":"Networking For Cloud Engineers","goal":"","days":[{"day":"Mon","topic":"The Packet's Journey: TCP/IP in Cloud Environments","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: Subnetting Practice","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Tue","topic":"DNS Deep Dive","sessions":[{"t":"M","l":"(2 hrs)","d":""},{"t":"M","l":"(2 hrs) — Lab: Build a DNS-based Service Discovery Simulation","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Wed","topic":"TLS, Load Balancing, and Reverse Proxies","sessions":[{"t":"M","l":"(2 hrs)","d":""},{"t":"M","l":"(2 hrs) — Lab: Set up Nginx as reverse proxy with TLS","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Thu","topic":"Network Debugging in Practice","sessions":[{"t":"M","l":"(2 hrs)","d":""},{"t":"M","l":"(2 hrs) — Lab: Simulate and debug network issues","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Fri","topic":"Networking Topics to Ignore & Review","sessions":[{"t":"M","l":"(2 hrs)","d":""},{"t":"M","l":"(2 hrs)","d":"— Revisit any networking topic from this week that was unclear. Redo the lab."},{"t":"A","l":"(1 hr)","d":"— Combined debugging challenge: Break DNS, add latency, and kill a backend simultaneously. Debug all three issues in under 15 minutes."},{"t":"E","l":"(1 hr)","d":"— Add network checks to your health-check-all.sh script from Week 1."}],"comp":""},{"day":"Sat","topic":"Mini Project: Full Network Diagnostic Suite","sessions":[],"comp":""},{"day":"Sun","topic":"Documentation & Competency Check","sessions":[],"comp":"1. Given a CIDR block, calculate usable IPs without a tool (e.g., /24 = 254, /28 = 14) 2. Run dig example.com +trace and explain every line of output 3. Debug a connection timeout: is it DNS, TCP, TLS, or application? Determine in under 2 minutes."}],"comp":"1. Given a CIDR block, calculate usable IPs without a tool (e.g., /24 = 254, /28 = 14) 2. Run dig example.com +trace and explain every line of output 3. Debug a connection timeout: is it DNS, TCP, TLS, or application? Determine in under 2 minutes.","mk":"1"},{"id":"4","title":"Python For Devops & Git","goal":"By end of month: Containerize any application, debug container failures, understand Docker networking, and provision basic AWS infrastructure with Terraform.","days":[{"day":"Mon","topic":"Python Automation Fundamentals","sessions":[{"t":"M","l":"(2 hrs)","d":""},{"t":"M","l":"(2 hrs) — Lab: Build an HTTP Health Monitor","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Tue","topic":"Git for Operations","sessions":[{"t":"M","l":"(2 hrs)","d":""},{"t":"M","l":"(2 hrs) — Lab: Git Conflict Resolution","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Wed","topic":"Python: Cloud SDK Fundamentals (boto3)","sessions":[{"t":"M","l":"(2 hrs)","d":""},{"t":"M","l":"(2 hrs) — Lab: Build an AWS Resource Auditor","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Thu","topic":"Python: Building a REST API Health Dashboard","sessions":[{"t":"M","l":"& Midday (4 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Fri","topic":"Month 1 Integration","sessions":[],"comp":""},{"day":"Sat","topic":"Portfolio Work","sessions":[],"comp":""},{"day":"Sun","topic":"Competency Check & Reflection","sessions":[],"comp":""}],"comp":"","mk":"1"},{"id":"5","title":"Docker: Not Just Commands, But How It Works","goal":"","days":[{"day":"Mon","topic":"Container Internals: Namespaces and Cgroups","sessions":[{"t":"M","l":"(2 hrs)","d":""},{"t":"M","l":"(2 hrs) — Lab: Build a Container from Scratch","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Tue","topic":"Docker Networking Deep Dive","sessions":[{"t":"M","l":"(2 hrs)","d":""},{"t":"M","l":"(2 hrs) — Lab: Docker Compose Multi-Service Application","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr)","d":"— Add Redis caching to the compose stack. Add a /api/cached endpoint that stores and retrieves data from Redis."}],"comp":""},{"day":"Wed","topic":"Docker Debugging Masterclass","sessions":[{"t":"M","l":"(2 hrs)","d":""},{"t":"M","l":"(2 hrs) — Lab: Debug 5 Broken Containers","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr)","d":"— Build a Docker container that runs your system health checker from Month 1, exposes results via HTTP, and has proper health checks."}],"comp":""},{"day":"Thu","topic":"Containerizing Legacy Applications","sessions":[{"t":"M","l":"(2 hrs)","d":""},{"t":"M","l":"(2 hrs) — Lab: Image Optimization","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Fri","topic":"AWS Cloud Fundamentals & Terraform Introduction","sessions":[{"t":"M","l":"(2 hrs)","d":""},{"t":"M","l":"(2 hrs) — Lab: First Terraform Project","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr)","d":"— Add an EC2 instance to the Terraform config. Use the aws_ami data source to find the latest Ubuntu AMI."}],"comp":""},{"day":"Sat","topic":"Mini Project: Dockerized Three-Tier Application","sessions":[],"comp":""},{"day":"Sun","topic":"Documentation & Competency Check","sessions":[],"comp":""}],"comp":"","mk":"2"},{"id":"6","title":"Kubernetes Architecture & Debugging","goal":"","days":[{"day":"Mon","topic":"Kubernetes Architecture & Control Plane","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Tue","topic":"Pod Lifecycle & Debugging Failures","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: CrashLoopBackOff Investigation","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Wed","topic":"Services & Kubernetes Networking","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Thu","topic":"Deployments, Rollouts & Probes","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: Rolling Updates & Rollbacks","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Fri","topic":"ConfigMaps, Secrets & Volumes","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Sat","topic":"Mini Project: Deploy Three-Tier App with Helm","sessions":[],"comp":""},{"day":"Sun","topic":"Documentation & Competency Check","sessions":[],"comp":"Set a 5-minute timer. Given a pod in CrashLoopBackOff, what are the first 5 kubectl commands you run? Can you identify the root cause from logs alone? If not, redo Tuesday's lab. By end of week: Manage Terraform state safely, write reusable modules, and recover from state corruption without destroyi"}],"comp":"Set a 5-minute timer. Given a pod in CrashLoopBackOff, what are the first 5 kubectl commands you run? Can you identify the root cause from logs alone? If not, redo Tuesday's lab. By end of week: Manage Terraform state safely, write reusable modules, and recover from state corruption without destroying infrastructure.","mk":"2"},{"id":"7","title":"Terraform Advanced & Iac Patterns","goal":"","days":[{"day":"Mon","topic":"Terraform State Management","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: Set Up Remote Backend","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Tue","topic":"Terraform Modules","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: Build a VPC Module","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Wed","topic":"Variables, Data Sources & Terraform Import","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: Terraform Import","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Thu","topic":"Terraform Debugging & State Recovery","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: State Recovery Scenarios","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Fri","topic":"Terraform Testing & Security Scanning","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: Add Security Scanning to a Pipeline","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Sat","topic":"Mini Project: Full Infrastructure Module","sessions":[],"comp":""},{"day":"Sun","topic":"Documentation & Competency Check","sessions":[],"comp":"1. Given a broken Terraform state (resource deleted outside of TF), recover without destroying other resources — demonstrate in under 10 minutes 2. Write a Terraform module from scratch with at least 3 input variables and 2 outputs 3. Explain what happens when two engineers run terraform apply simul"}],"comp":"1. Given a broken Terraform state (resource deleted outside of TF), recover without destroying other resources — demonstrate in under 10 minutes 2. Write a Terraform module from scratch with at least 3 input variables and 2 outputs 3. Explain what happens when two engineers run terraform apply simultaneously without a lock By end of week: Build a full CI/CD pipeline from commit to production using GitHub Actions and ArgoCD.","mk":"2"},{"id":"8","title":"Ci/Cd Pipelines & Gitops","goal":"","days":[{"day":"Mon","topic":"CI/CD Fundamentals & GitHub Actions","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: First GitHub Actions Workflow","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Tue","topic":"GitHub Actions Advanced: OIDC & Reusable Workflows","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: Reusable Workflows","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Wed","topic":"GitOps with ArgoCD","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: First ArgoCD Application","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Thu","topic":"Deployment Strategies: Canary & Blue-Green","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: Canary Deployment","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Fri","topic":"Pipeline Security & Supply Chain","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: Secure the Pipeline","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Sat","topic":"Mini Project: Full CI/CD Pipeline","sessions":[],"comp":""},{"day":"Sun","topic":"Documentation & Competency Check","sessions":[],"comp":"1. ☐ Given a failed pipeline, identify whether it's a lint/test/build/deploy failure in under 2 minutes 2. ☐ Deploy a new version using ArgoCD without running kubectl apply directly 3. ☐ Set up a canary rollout and manually abort it 4. ☐ Explain what a supply chain attack is and name 2 mitigations D"},{"day":"Mon","topic":"PostgreSQL Fundamentals","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: Understanding Query Plans","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Tue","topic":"Connection Pools & pg_stat_activity","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: Simulating Connection Exhaustion","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Wed","topic":"Locking, Deadlocks & Vacuum","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: Deadlock Simulation","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Thu","topic":"Replication & Backup/Restore","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: Backup & Point-in-Time Recovery","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Fri","topic":"Database Performance Investigation","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: Full Performance Investigation","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Sat","topic":"Mini Project: Database Observability Dashboard","sessions":[],"comp":""},{"day":"Sun","topic":"Database Competency Check","sessions":[],"comp":"1. ☐ Given a slow query, read its EXPLAIN plan and identify the bottleneck 2. ☐ Find and kill a blocking query using pg_stat_activity and pg_locks 3. ☐ Explain the difference between a Seq Scan and Index Scan 4. ☐ Set up streaming replication between two PostgreSQL instances 5. ☐ Restore a database"},{"day":"Mon","topic":"The Problem with Secrets in Config Files","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: HashiCorp Vault","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Tue","topic":"AWS IAM Deep Dive","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: Debugging Access Denied","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Wed","topic":"Network Security: Security Groups, NACLs & WAF","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: Analyze VPC Flow Logs","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Thu","topic":"Container Security & SAST/DAST","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: Secure Dockerfile Patterns","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Fri","topic":"Security Review & Defense-in-Depth","sessions":[{"t":"M","l":"(2 hrs)","d":""},{"t":"M","l":"(2 hrs)","d":"— Implement detection: Set up a CloudWatch alarm that fires when there are any ConsoleLoginWithoutMFA events in CloudTrail."},{"t":"A","l":"(1 hr)","d":"— Run a full security audit of your capstone project using your audit scripts. Fix all HIGH/CRITICAL findings."},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Sat","topic":"Mini Project: Zero-Trust Internal Network","sessions":[],"comp":""},{"day":"Sun","topic":"Security Competency Check","sessions":[],"comp":""}],"comp":"1. ☐ Given a failed pipeline, identify whether it's a lint/test/build/deploy failure in under 2 minutes 2. ☐ Deploy a new version using ArgoCD without running kubectl apply directly 3. ☐ Set up a canary rollout and manually abort it 4. ☐ Explain what a supply chain attack is and name 2 mitigations Databases are involved in 60-70% of production incidents. SREs who can't read a query plan, understand lock contention, or diagnose connection pool exhaustion will always need a DBA in the room. This m","mk":"2"},{"id":"9","title":"Prometheus & Metrics","goal":"By end of week: Given a running application, instrument it, deploy a full Prometheus + Grafana + Alertmanager stack, write PromQL queries for the RED and USE methods, configure multi-window burn-rate alerts, and reduce a noisy alert set to actionable signals.","days":[{"day":"Mon","topic":"Prometheus Architecture & First Scrape","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Tue","topic":"PromQL: The Language of Metrics","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Wed","topic":"Grafana Dashboards: USE and RED Methods","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Thu","topic":"Alertmanager & Burn-Rate Alerts","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Fri","topic":"Alert Fatigue Prevention & Runbook Engineering","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""}],"comp":"","mk":"3"},{"id":"10","title":"Sli/Slo/Error Budgets","goal":"By end of week: Define SLIs and SLOs for a real application, implement Prometheus recording rules to track them, build an error budget dashboard, configure multi-window burn-rate alerts, and run a mock SLO review with stakeholders.","days":[{"day":"Mon","topic":"Defining SLIs: What Are You Actually Measuring?","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Tue","topic":"Setting SLOs & Implementing Recording Rules","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Wed","topic":"Error Budget Dashboards","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Thu","topic":"Multi-Window Burn Rate Alerts (Deep Dive)","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Fri","topic":"SLO Review Simulation","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""}],"comp":"","mk":"3"},{"id":"11","title":"Distributed Tracing & Opentelemetry","goal":"By end of week: Given a multi-service application with a latency problem, instrument it with OpenTelemetry, deploy Jaeger, trace a slow request across 3 services, add custom spans to pinpoint the exact bottleneck, correlate traces with logs and metrics, and diagnose a failure using only observability signals — without reading code.","days":[{"day":"Mon","topic":"OpenTelemetry Concepts & Auto-Instrumentation","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Tue","topic":"Jaeger Deep Dive & Trace Analysis","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Wed","topic":"Custom Spans & Instrumentation","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Thu","topic":"Log Correlation: Connecting Logs, Traces & Metrics","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Fri","topic":"Full Observability Investigation (Black Box Debugging)","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""}],"comp":"","mk":"3"},{"id":"12","title":"Systems Math Deep Dive","goal":"By end of week: Use mathematical models — queueing theory, Little's Law, Amdahl's Law, the Universal Scalability Law — to explain and predict system behavior. Build simulations that prove why high utilization causes catastrophic latency, why retries amplify failures, and how to design systems that degrade gracefully instead of collapsing.","days":[{"day":"Mon","topic":"Queueing Theory: Why High CPU = Catastrophic Latency","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Tue","topic":"Retry Storms & Amplification","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Wed","topic":"Little's Law: Concurrency, Throughput & Latency","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Thu","topic":"Amdahl's Law & Universal Scalability Law","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Fri","topic":"Cascading Failures: Thundering Herd & Circuit Breakers","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""}],"comp":"","mk":"3"},{"id":"13-14","title":"Chaos Engineering","goal":"By end of Week 14: Design and execute a full GameDay on a multi-tier Kubernetes application. Inject CPU stress, network latency, pod failures, and disk pressure — observe how your SLOs respond, write a postmortem, implement fixes, and re-run to prove the system is now more resilient.","days":[{"day":"Mon","topic":"Install Litmus & First Pod Kill","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Tue","topic":"CPU Stress & HPA Behavior","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Wed","topic":"Network Chaos: Latency Injection","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Thu","topic":"Disk Fill & Alert Validation","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Fri","topic":"Compound Chaos: Debug Under Multiple Failures","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Mon","topic":"Write the GameDay Plan","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Tue","topic":"Execute the GameDay","sessions":[{"t":"M","l":"(30 min) — Pre-flight","d":""},{"t":"A","l":"/Evening (3 hrs) — Write the Postmortem","d":""}],"comp":""},{"day":"Wed","topic":"Implement Postmortem Fixes","sessions":[{"t":"A","l":"(2 hrs) — Implement Circuit Breaker Pattern","d":""}],"comp":""},{"day":"Thu","topic":"Implement Fixes & Re-run Experiments","sessions":[],"comp":""},{"day":"Fri","topic":"Full GameDay Re-run & Verification","sessions":[],"comp":""}],"comp":"","mk":"45"},{"id":"15-16","title":"Incident Response","goal":"By end of Week 16: Run incident command for 3 Wheel of Misfortune exercises, write production-quality postmortems, and containerize and deploy a mystery legacy application from scratch — with monitoring.","days":[{"day":"Mon","topic":"Incident Command Structure","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"A","l":"(2 hrs) — Study Real Postmortems","d":""}],"comp":""},{"day":"Tue","topic":"Wheel of Misfortune #1: Application Failure","sessions":[],"comp":""},{"day":"Wed","topic":"Postmortem Writing","sessions":[],"comp":""},{"day":"Thu","topic":"Wheel of Misfortune #2: Networking Failure","sessions":[],"comp":""},{"day":"Fri","topic":"Wheel of Misfortune #3: Red Herring (Two Simultaneous Issues)","sessions":[],"comp":""},{"day":"Mon","topic":"Receive the Mystery Application","sessions":[],"comp":""},{"day":"Tue","topic":"Write the Dockerfile","sessions":[],"comp":""},{"day":"Wed","topic":"Write Kubernetes Manifests","sessions":[],"comp":""},{"day":"Thu","topic":"Set Up Monitoring & Alerts","sessions":[],"comp":""},{"day":"Fri","topic":"Verify Persistence, Write Runbook","sessions":[],"comp":""}],"comp":"","mk":"45"},{"id":"17-18","title":"Migration Patterns","goal":"By end of Week 18: Execute a complete Strangler Fig migration — route traffic from a monolith to microservices using Nginx, migrate a live PostgreSQL database with zero downtime using dual-write and replication, and write a migration runbook a team could follow.","days":[{"day":"Mon","topic":"Strangler Fig: Nginx Proxy Setup","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""},{"t":"E","l":"(1 hr) — Build Task","d":""}],"comp":""},{"day":"Tue","topic":"Extract Second Microservice with Canary","sessions":[],"comp":""},{"day":"Wed","topic":"Database Dual-Write Pattern","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""}],"comp":""},{"day":"Thu","topic":"Zero-Downtime Database Migration","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""}],"comp":""},{"day":"Fri","topic":"Rollback Procedures","sessions":[],"comp":""}],"comp":"","mk":"45"},{"id":"19-20","title":"Iam & Security + Cost Engineering","goal":"By end of Week 20: Write and debug AWS IAM policies, use CloudTrail + Policy Simulator to diagnose access denied errors, build a least-privilege role chain, analyze an AWS bill to find the top cost drivers, and redesign an architecture to cut monthly spend by 30%+.","days":[{"day":"Mon","topic":"IAM Policy Structure","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""}],"comp":""},{"day":"Tue","topic":"Role Assumption & Instance Profiles","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""}],"comp":""},{"day":"Wed","topic":"Permission Boundaries","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""}],"comp":""},{"day":"Thu","topic":"IAM Debugging: CloudTrail + Policy Simulator","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""}],"comp":""},{"day":"Fri","topic":"Security Audit","sessions":[{"t":"M","l":"/Midday (3 hrs) — Security Audit Lab","d":""}],"comp":""},{"day":"Mon","topic":"AWS Cost Explorer Analysis","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""}],"comp":""},{"day":"Tue","topic":"Right-Sizing: Find Over-Provisioned Resources","sessions":[],"comp":""},{"day":"Wed","topic":"Reserved Instances vs Savings Plans","sessions":[],"comp":""},{"day":"Thu","topic":"Spot Instances: Fault-Tolerant Workloads","sessions":[],"comp":""},{"day":"Fri","topic":"Cost Optimization Project","sessions":[],"comp":""}],"comp":"","mk":"45"},{"id":"21-22","title":"Kubernetes Advanced","goal":"By end of Week 22: Implement namespace-scoped RBAC, deny-all-then-allow NetworkPolicies, enforce PodSecurityStandards, configure HPA with custom metrics, manage a StatefulSet through a rolling upgrade, and implement a PodDisruptionBudget that prevents a deployment from going below minimum availability during node drains.","days":[{"day":"Mon","topic":"RBAC: Namespace-Scoped Roles","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""},{"t":"A","l":"(1 hr) — Debugging Challenge","d":""}],"comp":""},{"day":"Tue","topic":"NetworkPolicies: Deny-All Then Allow","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""}],"comp":""},{"day":"Wed","topic":"PodSecurityStandards","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""}],"comp":""},{"day":"Thu","topic":"HPA with Custom Metrics","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""}],"comp":""},{"day":"Fri","topic":"StatefulSets: Managing Stateful Workloads","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: StatefulSet with Rolling Upgrade","d":""}],"comp":""},{"day":"Mon","topic":"Taints, Tolerations & Node Affinity","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""}],"comp":""},{"day":"Tue","topic":"Custom Resource Definitions & Operators","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: Write a CRD and understand operators","d":""}],"comp":""},{"day":"Wed","topic":"through Friday — Advanced K8s Operations","sessions":[],"comp":""}],"comp":"","mk":"67"},{"id":"23-24","title":"Platform Engineering","goal":"By end of Week 24: Understand what makes an Internal Developer Platform (IDP), set up a service template system, and build a CLI tool that abstracts Kubernetes for developers — letting them deploy, check status, view logs, and rollback without knowing kubectl.","days":[{"day":"Mon","topic":"What Is Platform Engineering?","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: Service Template System","d":""}],"comp":""},{"day":"Tue","topic":"through Wednesday — Software Catalog","sessions":[],"comp":""},{"day":"Mon","topic":"through Friday — Build the Platform CLI","sessions":[],"comp":""}],"comp":"","mk":"67"},{"id":"25-26","title":"Advanced Observability & Performance","goal":"By end of Week 26: Profile a running application using perf and flamegraphs, identify the hot path, implement an optimization, measure the improvement. Configure Thanos for long-term Prometheus storage and use exemplars to jump from a metric spike to the responsible trace.","days":[{"day":"Mon","topic":"through Wednesday — perf, py-spy, and Flamegraphs","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: Profile a Slow Python Application","d":""}],"comp":""},{"day":"Mon","topic":"through Wednesday — Thanos for Long-Term Storage","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""}],"comp":""},{"day":"Thu","topic":"Friday — Exemplars: Metric-to-Trace Correlation","sessions":[],"comp":""}],"comp":"","mk":"67"},{"id":"27-28","title":"Multi-Region & High Availability","goal":"By end of Week 28: Deploy a multi-AZ application with Terraform, simulate an AZ failure and verify automatic recovery, set up PostgreSQL streaming replication, perform a failover, and measure RPO/RTO.","days":[{"day":"Mon","topic":"through Wednesday — Terraform Multi-AZ Deployment","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab: Terraform Multi-AZ Module","d":""}],"comp":""},{"day":"Thu","topic":"Simulate AZ Failure","sessions":[],"comp":""},{"day":"Mon","topic":"through Wednesday — Set Up Streaming Replication","sessions":[{"t":"M","l":"(2 hrs) — Concept Session","d":""},{"t":"M","l":"(2 hrs) — Lab","d":""}],"comp":""},{"day":"Thu","topic":"Perform Failover","sessions":[],"comp":""},{"day":"Fri","topic":"Measure RPO/RTO and Write HA Runbook","sessions":[],"comp":""}],"comp":"","mk":"67"},{"id":"29-32","title":"Capstone Project","goal":"Build a production-grade multi-service e-commerce platform from scratch, applying every skill from the previous 28 weeks. By Week 32, you will have a complete, observable, resilient Kubernetes-native platform you can demo in interviews.","days":[{"day":"Mon","topic":"Architecture Design Decisions","sessions":[],"comp":""},{"day":"Tue","topic":"EKS Add-ons & Cluster Bootstrap","sessions":[],"comp":""},{"day":"Wed","topic":"RDS & State Infrastructure","sessions":[],"comp":""},{"day":"Thu","topic":"ArgoCD GitOps Setup","sessions":[],"comp":""},{"day":"Fri","topic":"Week 29 Competency Check","sessions":[],"comp":""},{"day":"Mon","topic":"Application Code & Containerization","sessions":[],"comp":""},{"day":"Mon","topic":"OpenTelemetry Instrumentation","sessions":[],"comp":""},{"day":"Tue","topic":"Prometheus Operator & Recording Rules","sessions":[],"comp":""},{"day":"Wed","topic":"SLO Dashboards & Alert Rules","sessions":[],"comp":""},{"day":"Thu","topic":"Distributed Trace Analysis","sessions":[],"comp":""},{"day":"Fri","topic":"Week 31 Competency Check","sessions":[],"comp":""},{"day":"Tue","topic":"Postmortem Writing","sessions":[],"comp":""},{"day":"Wed","topic":"Fix Implementation & Re-test","sessions":[],"comp":""}],"comp":"","mk":"89"},{"id":"33-34","title":"Interview Preparation","goal":"","days":[{"day":"Mon","topic":"System Design: Distributed Rate Limiting","sessions":[],"comp":""},{"day":"Tue","topic":"Troubleshooting: Live Debugging Under Pressure","sessions":[],"comp":""},{"day":"Wed","topic":"Linux Internals Deep Dive","sessions":[],"comp":""},{"day":"Thu","topic":"Kubernetes Debugging Rapid-Fire","sessions":[],"comp":""},{"day":"Fri","topic":"Full Mock Interview (Record It)","sessions":[],"comp":""},{"day":"Mon","topic":"Behavioral Questions","sessions":[],"comp":""},{"day":"Tue","topic":"Architectural Interview Deep Dive","sessions":[],"comp":""},{"day":"Wed","topic":"Incident Response Role-Play","sessions":[],"comp":""},{"day":"Thu","topic":"Senior-Level Questions","sessions":[],"comp":""},{"day":"Fri","topic":"Full Mock Panel Interview","sessions":[],"comp":""}],"comp":"","mk":"89"},{"id":"35-36","title":"Career Positioning","goal":"","days":[{"day":"Mon","topic":"LinkedIn Optimization","sessions":[],"comp":""},{"day":"Tue","topic":"GitHub Portfolio","sessions":[],"comp":""},{"day":"Wed","topic":"Technical Blog","sessions":[],"comp":""},{"day":"Thu","topic":"Community & Networking","sessions":[],"comp":""},{"day":"Fri","topic":"Job Application Materials","sessions":[],"comp":""},{"day":"Thu","topic":"Network Activation","sessions":[],"comp":""},{"day":"Fri","topic":"Week 36 Retrospective","sessions":[],"comp":""}],"comp":"","mk":"89"},{"id":"37-38","title":"Event-Driven Architecture","goal":"","days":[{"day":"Mon","topic":"Kafka Mental Model","sessions":[],"comp":""},{"day":"Tue","topic":"Consumer Patterns & Idempotency","sessions":[],"comp":""},{"day":"Wed","topic":"Schema Registry & Schema Evolution","sessions":[],"comp":""},{"day":"Thu","topic":"KEDA Autoscaling on Kafka Lag","sessions":[],"comp":""},{"day":"Fri","topic":"Week 37 Competency Check","sessions":[],"comp":""},{"day":"Mon","topic":"Event Sourcing & CQRS","sessions":[],"comp":""},{"day":"Tue","topic":"Saga Pattern for Distributed Transactions","sessions":[],"comp":""},{"day":"Wed","topic":"Kafka Observability","sessions":[],"comp":""}],"comp":"","mk":"1011"},{"id":"39-40","title":"Ai Infrastructure & Model Deployment","goal":"","days":[{"day":"Mon","topic":"GPU Node Groups & NVIDIA Device Plugin","sessions":[],"comp":""},{"day":"Tue","topic":"vLLM: Deploying LLMs at Scale","sessions":[],"comp":""},{"day":"Wed","topic":"LLM Inference Observability (SLOs for AI)","sessions":[],"comp":""},{"day":"Thu","topic":"MLflow & Model Registry","sessions":[],"comp":""},{"day":"Fri","topic":"Week 39 Competency Check","sessions":[],"comp":""},{"day":"Mon","topic":"Model Drift Detection","sessions":[],"comp":""},{"day":"Tue","topic":"A/B Testing Models in Production","sessions":[],"comp":""},{"day":"Wed","topic":"Cost Optimization for GPU Infrastructure","sessions":[],"comp":""}],"comp":"","mk":"1011"},{"id":"41","title":"Aiops & Ai-Assisted Observability","goal":"","days":[{"day":"Mon","topic":"Why Threshold Alerting Breaks at Scale","sessions":[],"comp":""},{"day":"Tue","topic":"Anomaly Detection on Prometheus Metrics","sessions":[],"comp":""},{"day":"Wed","topic":"LLM-Powered Runbook Assistant","sessions":[],"comp":""},{"day":"Thu","topic":"Automated Root Cause Correlation","sessions":[],"comp":""},{"day":"Fri","topic":"AIOps Limits & Week 41 Competency Check","sessions":[],"comp":""}],"comp":"","mk":"1011"}];
+
+const SESS_CLR = {M:"#38bdf8",A:"#f59e0b",E:"#22c55e"};
+
+function weekCount(id) {
+  if (id.includes("-")) {
+    const [a,b] = id.split("-").map(Number);
+    return b - a + 1;
+  }
+  return 1;
+}
+const TOTAL_WEEKS = PLAYBOOK_WEEKS.reduce((acc,w) => acc + weekCount(w.id), 0);
+
+function NineMonthRoadmap() {
+  const [wDone, setWDone] = useState({});
+  const [mOpen, setMOpen] = useState({});
+  const [wOpen, setWOpen] = useState({});
+  const [loaded, setLoaded] = useState(false);
+  useEffect(()=>{
+    (async()=>{
+      try{const r=await window.storage.get("9m-v3");if(r)setWDone(JSON.parse(r.value));}catch{}
+      setLoaded(true);
+    })();
+  },[]);
+  const toggleDone=(wid)=>{const n={...wDone,[wid]:!wDone[wid]};setWDone(n);window.storage.set("9m-v3",JSON.stringify(n)).catch(()=>{});};
+  const toggleM=(k)=>setMOpen(e=>({...e,[k]:!e[k]}));
+  const toggleW=(k)=>setWOpen(e=>({...e,[k]:!e[k]}));
+  const total=TOTAL_WEEKS;
+  const done=PLAYBOOK_WEEKS.filter(w=>wDone[w.id]).reduce((acc,w)=>acc+weekCount(w.id),0);
+  const pct=Math.round(done/total*100);
+  if(!loaded)return <div style={{color:"#475569",padding:40,textAlign:"center"}}>Loading...</div>;
+  return(
+    <div style={{maxWidth:860,width:"100%"}}>
+      <div style={{marginBottom:18,padding:"13px 15px",background:"rgba(56,189,248,0.06)",border:"1px solid rgba(56,189,248,0.2)",borderRadius:10}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <div>
+            <div style={{fontSize:13,fontWeight:600,color:"#f8fafc"}}>SRE/DevOps Transformation Program</div>
+            <div style={{fontSize:10,color:"#64748b",marginTop:2}}>Full Execution Playbook · Weeks 1–41 ({TOTAL_WEEKS} weeks total)</div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:20,fontWeight:700,color:"#38bdf8"}}>{pct}%</div>
+            <div style={{fontSize:10,color:"#64748b"}}>{done}/{total} weeks</div>
+          </div>
+        </div>
+        <div style={{background:"#0b0e14",borderRadius:4,height:5}}><div style={{height:"100%",width:`${pct}%`,background:"linear-gradient(90deg,#38bdf8,#22c55e)",borderRadius:4,transition:"width 0.3s"}}/></div>
+      </div>
+      {PLAYBOOK_MONTHS.map(month=>{
+        const mWeeks=PLAYBOOK_WEEKS.filter(w=>w.mk===month.key);
+        const mDone=mWeeks.filter(w=>wDone[w.id]).length;
+        const isOpen=!!mOpen[month.key];
+        return(
+          <div key={month.key} style={{marginBottom:10,border:`1px solid ${month.color}22`,borderRadius:10,overflow:"hidden"}}>
+            <button onClick={()=>toggleM(month.key)} style={{width:"100%",background:isOpen?`${month.color}10`:"rgba(255,255,255,0.02)",border:"none",padding:"11px 13px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
+              <div style={{width:34,height:34,borderRadius:6,background:`${month.color}18`,border:`1px solid ${month.color}35`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:month.color,flexShrink:0,textAlign:"center",lineHeight:1.2}}>
+                {month.label}
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:12,fontWeight:600,color:"#f8fafc",lineHeight:1.3}}>{month.title}</div>
+                <div style={{fontSize:10,color:mDone===mWeeks.length&&mWeeks.length>0?"#22c55e":"#64748b",marginTop:2}}>{mDone}/{mWeeks.length} weeks complete</div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+                <div style={{width:36,background:"#1a2332",borderRadius:3,height:4}}><div style={{height:"100%",width:`${mWeeks.length?Math.round(mDone/mWeeks.length*100):0}%`,background:month.color,borderRadius:3}}/></div>
+                <span style={{fontSize:9,color:"#475569"}}>{isOpen?"▲":"▼"}</span>
+              </div>
+            </button>
+            {isOpen&&(
+              <div style={{padding:"0 10px 10px"}}>
+                {mWeeks.map(week=>{
+                  const isDone=!!wDone[week.id];
+                  const isWOpen=!!wOpen[week.id];
+                  return(
+                    <div key={week.id} style={{marginTop:8,background:isDone?"rgba(34,197,94,0.04)":"rgba(255,255,255,0.02)",border:`1px solid ${isDone?"rgba(34,197,94,0.18)":month.color+"18"}`,borderRadius:8,overflow:"hidden"}}>
+                      <div style={{display:"flex",alignItems:"flex-start",gap:9,padding:"10px 11px"}}>
+                        <div onClick={()=>toggleDone(week.id)} style={{width:20,height:20,borderRadius:4,border:`1.5px solid ${isDone?"#22c55e":"#334155"}`,background:isDone?"#22c55e":"transparent",flexShrink:0,marginTop:2,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                          {isDone&&<span style={{color:"#0b0e14",fontSize:10,fontWeight:700}}>✓</span>}
+                        </div>
+                        <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>toggleW(week.id)}>
+                          <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                            <span style={{fontSize:9,color:month.color,background:`${month.color}15`,border:`1px solid ${month.color}30`,padding:"1px 6px",borderRadius:3,fontWeight:700,whiteSpace:"nowrap"}}>WK {week.id}</span>
+                            <span style={{fontSize:12,fontWeight:600,color:isDone?"#64748b":"#e2e8f0",textDecoration:isDone?"line-through":"none",lineHeight:1.3}}>{week.title}</span>
+                          </div>
+                          {week.goal&&<div style={{fontSize:10,color:"#64748b",marginTop:4,lineHeight:1.5}}>{week.goal}</div>}
+                        </div>
+                        <button onClick={()=>toggleW(week.id)} style={{background:"none",border:"none",color:"#475569",cursor:"pointer",fontSize:9,padding:2,flexShrink:0}}>{isWOpen?"▲":"▼"}</button>
+                      </div>
+                      {isWOpen&&(
+                        <div style={{borderTop:"1px solid rgba(255,255,255,0.05)",padding:"8px 12px 10px"}}>
+                          {week.days.map((day,di)=>(
+                            <div key={di} style={{marginBottom:8,paddingBottom:8,borderBottom:di<week.days.length-1?"1px solid rgba(255,255,255,0.04)":"none"}}>
+                              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                                <span style={{fontSize:9,color:month.color,background:`${month.color}15`,border:`1px solid ${month.color}25`,padding:"1px 6px",borderRadius:3,fontWeight:700}}>{day.day}</span>
+                                <span style={{fontSize:11,fontWeight:600,color:"#cbd5e1"}}>{day.topic}</span>
+                              </div>
+                              {day.sessions.map((s,si)=>(
+                                <div key={si} style={{display:"flex",alignItems:"flex-start",gap:6,marginTop:3,paddingLeft:4}}>
+                                  <span style={{fontSize:8,color:SESS_CLR[s.t]||"#64748b",background:`${SESS_CLR[s.t]||"#64748b"}18`,padding:"1px 5px",borderRadius:2,flexShrink:0,marginTop:1,fontWeight:600}}>{s.t}</span>
+                                  <span style={{fontSize:10,color:"#64748b",lineHeight:1.4}}>{s.l}{s.d?` — ${s.d}`:""}</span>
+                                </div>
+                              ))}
+                              {day.comp&&(
+                                <div style={{marginTop:5,padding:"5px 8px",background:"rgba(56,189,248,0.06)",border:"1px solid rgba(56,189,248,0.15)",borderRadius:4}}>
+                                  <span style={{fontSize:9,color:"#38bdf8",fontWeight:600}}>COMPETENCY: </span>
+                                  <span style={{fontSize:10,color:"#94a3b8"}}>{day.comp}</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                          {week.comp&&(
+                            <div style={{marginTop:6,padding:"7px 10px",background:"rgba(34,197,94,0.06)",border:"1px solid rgba(34,197,94,0.2)",borderRadius:6}}>
+                              <div style={{fontSize:9,color:"#22c55e",fontWeight:700,marginBottom:2}}>✓ WEEK COMPETENCY CHECK</div>
+                              <div style={{fontSize:10,color:"#94a3b8",lineHeight:1.5}}>{week.comp}</div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <div style={{marginTop:12,fontSize:10,color:"#334155",textAlign:"center"}}>SRE/DevOps Transformation Program Execution Playbook</div>
+    </div>
+  );
+}
+
+// ── REFERENCES ────────────────────────────────────────────────────────────────
+const COMPETENCY_TABLE=[
+  {wk:"1",can:"Identify server bottleneck (CPU/mem/disk/net) in 3 min"},
+  {wk:"2",can:"Parse logs and calculate p95 latency with CLI tools"},
+  {wk:"3",can:"Debug DNS/TCP/TLS failures end-to-end"},
+  {wk:"4",can:"Write Python health checkers and bash automation"},
+  {wk:"5",can:"Explain container internals, debug Docker failures"},
+  {wk:"6",can:"Deploy and debug applications on Kubernetes (full daily labs)"},
+  {wk:"7",can:"Manage Terraform state, write reusable modules, recover from drift"},
+  {wk:"8",can:"Build CI/CD pipelines with OIDC, GitOps, canary deployments, supply chain security"},
+  {wk:"9",can:"Write PromQL queries and build Grafana dashboards"},
+  {wk:"10",can:"Define SLIs/SLOs and calculate error budgets"},
+  {wk:"11",can:"Trace requests across distributed services"},
+  {wk:"12",can:"Reason about system behavior using queueing theory"},
+  {wk:"13-14",can:"Run chaos experiments and write postmortems"},
+  {wk:"15-16",can:"Respond to incidents and adopt unknown systems"},
+  {wk:"17-18",can:"Migrate monolith services with zero downtime"},
+  {wk:"19-20",can:"Debug IAM issues and optimize cloud costs"},
+  {wk:"21-22",can:"Manage advanced K8s (RBAC, HPA, StatefulSets)"},
+  {wk:"23-24",can:"Build internal developer platforms"},
+  {wk:"25-26",can:"Profile and optimize application performance"},
+  {wk:"27-28",can:"Design multi-AZ highly available architectures"},
+  {wk:"29-32",can:"Operate a production-grade platform end-to-end"},
+  {wk:"33-34",can:"Pass SRE/DevOps technical interviews"},
+  {wk:"35-36",can:"Launch job search with visible proof of competence"},
+  {wk:"DB-A",can:"Read query plans, debug lock contention, manage connection pools"},
+  {wk:"DB-B",can:"Set up streaming replication, backup/restore, tune for performance"},
+  {wk:"Sec-A",can:"Manage secrets with Vault, debug IAM access denied, purge secrets from git"},
+  {wk:"Sec-B",can:"Scan images for CVEs, write secure Dockerfiles, audit network security"},
+  {wk:"Obs-C",can:"Use Datadog APM and monitors, translate PromQL to DQL/NRQL"},
+];
+
+const READING_LIST=[
+  {n:1, title:"Google SRE Book — Chapters 1-4 (free online)", tag:"Core", url:"https://sre.google/sre-book/table-of-contents/"},
+  {n:2, title:"Google SRE Workbook — On-Call Chapter", tag:"Core", url:"https://sre.google/workbook/table-of-contents/"},
+  {n:3, title:"The Tail at Scale — Jeff Dean & Luiz Barroso", tag:"Core", url:""},
+  {n:4, title:"Release It! — Michael Nygard (Ch. 1-5)", tag:"Core", url:""},
+  {n:5, title:"Cloudflare Blog — Any 3 recent postmortems", tag:"Core", url:"https://blog.cloudflare.com"},
+  {n:6, title:"Designing Data-Intensive Applications — Kleppmann (Part I)", tag:"Core", url:""},
+  {n:7, title:"Systems Performance — Brendan Gregg (Ch. 1-3)", tag:"Core", url:"https://brendangregg.com/systems-performance-2nd-edition-book.html"},
+  {n:8, title:"Netflix Tech Blog — Chaos Engineering articles", tag:"Core", url:"https://netflixtechblog.com"},
+  {n:9, title:"AWS Well-Architected Framework — Reliability Pillar", tag:"Core", url:"https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/welcome.html"},
+  {n:10,title:"PostgreSQL: Up and Running — Ch. 1-5", tag:"Database", url:""},
+  {n:11,title:"Use the Index, Luke — All chapters (free)", tag:"Database", url:"https://use-the-index-luke.com"},
+  {n:12,title:"PgBadger documentation — slow query logs", tag:"Database", url:"https://pgbadger.darold.net"},
+  {n:13,title:"OWASP Top 10 — Memorize all 10", tag:"Security", url:"https://owasp.org/Top10/"},
+  {n:14,title:"AWS Security Best Practices whitepaper", tag:"Security", url:"https://aws.amazon.com/security/"},
+  {n:15,title:"The Web Application Hacker's Handbook — Ch. 1-3", tag:"Security", url:""},
+  {n:16,title:"Datadog Learning Center — APM and Dashboards (free)", tag:"Observability", url:"https://learn.datadoghq.com"},
+  {n:17,title:"New Relic University — NRQL Fundamentals (free)", tag:"Observability", url:"https://learn.newrelic.com"},
+];
+
+const TAG_CLR={Core:"#38bdf8",Database:"#f59e0b",Security:"#f472b6",Observability:"#22c55e"};
+
+function References() {
+  const [readDone, setReadDone] = useState({});
+  const [loaded, setLoaded] = useState(false);
+  useEffect(()=>{
+    (async()=>{try{const r=await window.storage.get("ref-read");if(r)setReadDone(JSON.parse(r.value));}catch{}setLoaded(true);})();
+  },[]);
+  const toggle=(n)=>{const x={...readDone,[n]:!readDone[n]};setReadDone(x);window.storage.set("ref-read",JSON.stringify(x)).catch(()=>{});};
+  const rc=READING_LIST.filter(r=>readDone[r.n]).length;
+  if(!loaded)return <div style={{color:"#475569",padding:40,textAlign:"center"}}>Loading...</div>;
+  return(
+    <div style={{maxWidth:860,width:"100%"}}>
+      <div style={{marginBottom:24}}>
+        <div style={{fontSize:13,fontWeight:700,color:"#f8fafc",marginBottom:12}}>📈 Weekly Competency Progression</div>
+        <div style={{background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:8,overflow:"hidden"}}>
+          {COMPETENCY_TABLE.map((row,i)=>(
+            <div key={row.wk} style={{display:"flex",gap:10,alignItems:"flex-start",padding:"9px 13px",background:i%2===0?"transparent":"rgba(255,255,255,0.015)",borderBottom:i<COMPETENCY_TABLE.length-1?"1px solid rgba(255,255,255,0.04)":"none"}}>
+              <span style={{fontSize:9,color:"#38bdf8",background:"rgba(56,189,248,0.12)",border:"1px solid rgba(56,189,248,0.25)",padding:"2px 6px",borderRadius:3,fontWeight:700,flexShrink:0,minWidth:44,textAlign:"center",marginTop:1}}>WK {row.wk}</span>
+              <span style={{fontSize:11,color:"#94a3b8",lineHeight:1.5}}>{row.can}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#f8fafc"}}>📚 Essential Reading List</div>
+          <div style={{fontSize:10,color:"#64748b"}}>{rc}/{READING_LIST.length} read</div>
+        </div>
+        <div style={{background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:8,overflow:"hidden"}}>
+          {READING_LIST.map((book,i)=>(
+            <div key={book.n} onClick={()=>toggle(book.n)} style={{display:"flex",gap:10,alignItems:"flex-start",padding:"10px 13px",cursor:"pointer",background:readDone[book.n]?"rgba(34,197,94,0.04)":i%2===0?"transparent":"rgba(255,255,255,0.015)",borderBottom:i<READING_LIST.length-1?"1px solid rgba(255,255,255,0.04)":"none"}}>
+              <div style={{width:18,height:18,borderRadius:3,border:`1.5px solid ${readDone[book.n]?"#22c55e":"#334155"}`,background:readDone[book.n]?"#22c55e":"transparent",flexShrink:0,marginTop:1,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                {readDone[book.n]&&<span style={{color:"#0b0e14",fontSize:10,fontWeight:700}}>✓</span>}
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:2}}>
+                  <span style={{fontSize:8,color:TAG_CLR[book.tag]||"#64748b",background:`${TAG_CLR[book.tag]||"#64748b"}18`,border:`1px solid ${TAG_CLR[book.tag]||"#64748b"}30`,padding:"1px 5px",borderRadius:2,fontWeight:600}}>{book.tag}</span>
+                  <span style={{fontSize:11,color:readDone[book.n]?"#475569":"#cbd5e1",textDecoration:readDone[book.n]?"line-through":"none"}}>{book.n}. {book.title}</span>
+                </div>
+                {book.url&&<div style={{fontSize:9,color:"#38bdf8"}}>{book.url}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function Tracker() {
+  const [tab, setTab] = useState("todo");
+  const TABS = [
+    { id:"todo",    label:"📋 Mission Control", short:"📋" },
+    { id:"roadmap", label:"🗺️ SRE Roadmap",     short:"🗺️" },
+    { id:"intel",   label:"🎯 Priority Intel",  short:"🎯" },
+    { id:"edu",     label:"🎓 Education",        short:"🎓" },
+    { id:"pepp",    label:"📡 PEPP",             short:"📡" },
+    { id:"9m",      label:"📅 9M Playbook",      short:"📅" },
+    { id:"refs",    label:"📚 References",       short:"📚" },
+  ];
+  return (
+    <div style={{ minHeight:"100vh", background:"#0b0e14", color:"#e2e8f0", fontFamily:"'JetBrains Mono','Fira Code',monospace" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0}
+        html,body{overflow-x:hidden}
+        ::-webkit-scrollbar{width:4px;height:4px}
+        ::-webkit-scrollbar-track{background:#0b0e14}
+        ::-webkit-scrollbar-thumb{background:#1e2a3a;border-radius:2px}
+        .item-row:hover{background:rgba(255,255,255,0.03)!important}
+        .item-row:hover .actions{opacity:1!important}
+        input,select,textarea{outline:none}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+        .tab-bar{display:flex;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;border-bottom:1px solid #1a2332}
+        .tab-bar::-webkit-scrollbar{display:none}
+        .tab-btn{background:none;border:none;border-bottom:2px solid transparent;white-space:nowrap;cursor:pointer;font-family:inherit;transition:all 0.15s;flex-shrink:0}
+        .tab-btn.active{color:#38bdf8;border-bottom-color:#38bdf8;font-weight:600}
+        .tab-btn:not(.active){color:#475569}
+        .tab-full{display:inline}
+        .tab-short{display:none}
+        .mc-header-title{font-size:20px}
+        .mc-header-sub{font-size:10px}
+        .mc-content{padding:24px 24px 80px}
+        .mc-header{padding:16px 24px 0;position:sticky;top:0;background:#0b0e14;z-index:10;border-bottom:1px solid #1a2332}
+        @media(max-width:640px){
+          .tab-full{display:none}
+          .tab-short{display:inline;font-size:18px}
+          .tab-btn{padding:10px 14px}
+          .mc-header-title{font-size:16px}
+          .mc-header-sub{font-size:9px;display:none}
+          .mc-content{padding:12px 12px 80px}
+          .mc-header{padding:12px 12px 0}
+        }
+        @media(min-width:641px) and (max-width:900px){
+          .tab-btn{padding:8px 12px;font-size:11px}
+          .mc-content{padding:16px 16px 80px}
+          .mc-header{padding:14px 16px 0}
+        }
+        @media(min-width:901px){
+          .tab-btn{padding:8px 18px;font-size:12px}
+        }
+      `}</style>
+
+      {/* Header */}
+      <div className="mc-header">
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+          <div>
+            <div style={{ fontFamily:"'Space Grotesk',sans-serif", fontSize:10, color:"#22c55e", letterSpacing:"0.2em", marginBottom:2 }}>DONALD ANYAMBA // DAY ZERO</div>
+            <div className="mc-header-title" style={{ fontFamily:"'Space Grotesk',sans-serif", fontWeight:700, color:"#f8fafc", letterSpacing:"-0.02em" }}>Mission Control</div>
+          </div>
+          <div style={{ textAlign:"right" }}>
+            <div style={{ fontSize:10, color:"#374151" }}>@donaldraph</div>
+            <div className="mc-header-sub" style={{ color:"#1e2a3a", marginTop:2 }}>Cloud/SRE · SE Nigeria → World</div>
+          </div>
+        </div>
+
+        {/* Scrollable tab bar */}
+        <div className="tab-bar">
+          {TABS.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)} className={`tab-btn${tab===t.id?" active":""}`}>
+              <span className="tab-full">{t.label}</span>
+              <span className="tab-short">{t.short}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Tab Content */}
+      <div className="mc-content">
+        {tab === "todo"    && <MissionControl />}
+        {tab === "roadmap" && <SRERoadmap />}
+        {tab === "intel"   && <PriorityIntel />}
+        {tab === "edu"     && <Education />}
+        {tab === "pepp"    && <PEPP />}
+        {tab === "9m"      && <NineMonthRoadmap />}
+        {tab === "refs"    && <References />}
+
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [unlocked, setUnlocked] = React.useState(false);
+  const skipGate = new URLSearchParams(window.location.search).get('skip_gate') === '1';
+  if (!unlocked && !skipGate) return <PasswordGate onUnlock={() => setUnlocked(true)} />;
+  return <Tracker />;
+}
+
+const rootEl = document.getElementById('root');
+ReactDOM.createRoot(rootEl).render(<App />);
+  </script>
+</body>
+</html>
