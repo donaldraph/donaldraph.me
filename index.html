@@ -597,6 +597,27 @@
       justify-self: center;
     }
     .pl-name { font-size: 15px; color: var(--text); }
+    .pl-link {
+      display: inline-flex; align-items: center; gap: 9px;
+      text-decoration: none; color: var(--text);
+      transition: color 0.2s ease;
+    }
+    .pl-link:hover { color: var(--mint); }
+    .pl-verify {
+      font-family: var(--mono);
+      font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--mint);
+      border: 1px solid rgba(52, 211, 153, 0.35);
+      border-radius: 4px;
+      padding: 2px 6px;
+      opacity: 0.85;
+      transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+    }
+    .pl-link:hover .pl-verify {
+      background: rgba(52, 211, 153, 0.14);
+      border-color: rgba(52, 211, 153, 0.7);
+      opacity: 1;
+    }
     .pl-meta {
       display: flex; align-items: center; gap: 12px;
       font-family: var(--mono); font-size: 11px;
@@ -962,7 +983,7 @@
     <ol class="pipeline">
       <li class="pl-row is-done">
         <span class="pl-dot"></span>
-        <span class="pl-name">GitHub Copilot</span>
+        <a class="pl-name pl-link" href="https://learn.microsoft.com/en-gb/users/donaldanyamba-7081/credentials/4733422b31dd5396" target="_blank" rel="noopener">GitHub Copilot <span class="pl-verify">verify ↗</span></a>
         <span class="pl-meta"><span class="pl-stat">certified</span><span class="pl-date">Jun 2026</span></span>
       </li>
       <li class="pl-row is-active">
