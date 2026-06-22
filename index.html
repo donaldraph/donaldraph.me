@@ -232,6 +232,46 @@
       transition: opacity 0.5s ease;
     }
     .avatar img.loaded { opacity: 1; }
+    /* drifting scanlines — faint monitor/CRT texture */
+    .avatar::before {
+      content: "";
+      position: absolute; inset: 0; z-index: 2;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.12) 0px,
+        rgba(0, 0, 0, 0.12) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+      mix-blend-mode: soft-light;
+      opacity: 0.5;
+      animation: scan-drift 6s linear infinite;
+    }
+    /* film grain — masks the over-smooth synthetic look */
+    .avatar::after {
+      content: "";
+      position: absolute; inset: -50%; z-index: 2;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      mix-blend-mode: overlay;
+      opacity: 0.16;
+      animation: grain-shift 0.6s steps(2) infinite;
+    }
+    @keyframes scan-drift {
+      from { transform: translateY(0); }
+      to   { transform: translateY(3px); }
+    }
+    @keyframes grain-shift {
+      0%   { transform: translate(0, 0); }
+      25%  { transform: translate(-4%, 3%); }
+      50%  { transform: translate(3%, -4%); }
+      75%  { transform: translate(-3%, -2%); }
+      100% { transform: translate(2%, 4%); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .avatar::before, .avatar::after { animation: none; }
+    }
     .avatar .mono-fallback {
       position: absolute; inset: 0;
       display: flex; align-items: center; justify-content: center;
@@ -239,7 +279,7 @@
       color: var(--cyan);
     }
     .avatar .corner {
-      position: absolute; z-index: 2; width: 14px; height: 14px;
+      position: absolute; z-index: 3; width: 14px; height: 14px;
       border: 2px solid var(--cyan);
     }
     .avatar .corner.tl { top: 6px; left: 6px; border-width: 2px 0 0 2px; }
