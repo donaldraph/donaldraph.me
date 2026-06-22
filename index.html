@@ -40,7 +40,11 @@
     html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
     body {
-      background: var(--bg);
+      background-color: #070a11;
+      background-image:
+        radial-gradient(130% 90% at 50% -20%, #0f1830 0%, transparent 55%),
+        linear-gradient(180deg, #05080f 0%, #0a0e16 45%, #070a11 100%);
+      background-repeat: no-repeat;
       color: var(--text);
       font-family: var(--body);
       font-size: 16px;
@@ -49,6 +53,24 @@
       overflow-x: hidden;
       -webkit-font-smoothing: antialiased;
       text-rendering: optimizeLegibility;
+    }
+
+    /* drifting aurora — living colour texture instead of flat black */
+    .fx-aurora {
+      position: fixed; inset: -25%;
+      z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(38% 32% at 22% 28%, rgba(34,211,238,0.16), transparent 70%),
+        radial-gradient(34% 30% at 78% 22%, rgba(52,211,153,0.13), transparent 70%),
+        radial-gradient(40% 34% at 60% 80%, rgba(99,102,241,0.13), transparent 72%);
+      filter: blur(40px);
+      opacity: 0.85;
+      animation: aurora 26s ease-in-out infinite alternate;
+    }
+    @keyframes aurora {
+      0%   { transform: translate3d(-3%, -2%, 0) scale(1.05); }
+      50%  { transform: translate3d(2%, 3%, 0) scale(1.18); }
+      100% { transform: translate3d(3%, -3%, 0) scale(1.08); }
     }
 
     /* faint grid motif — always-on, cheap */
@@ -60,7 +82,7 @@
         linear-gradient(var(--border) 1px, transparent 1px),
         linear-gradient(90deg, var(--border) 1px, transparent 1px);
       background-size: 56px 56px;
-      opacity: 0.18;
+      opacity: 0.14;
       pointer-events: none;
       z-index: 0;
     }
@@ -69,17 +91,17 @@
       content: '';
       position: fixed;
       inset: 0;
-      background: radial-gradient(120% 90% at 50% -10%, transparent 55%, rgba(0,0,0,0.55));
+      background: radial-gradient(120% 90% at 50% -10%, transparent 55%, rgba(0,0,0,0.6));
       pointer-events: none;
       z-index: 0;
     }
 
-    #constellation {
+    /* starfield + shooting stars (mobile included) */
+    #starfield {
       position: fixed;
       inset: 0;
       z-index: 0;
       pointer-events: none;
-      opacity: 0.5;
     }
 
     a { color: inherit; }
@@ -284,6 +306,135 @@
     }
     .avatar .corner.tl { top: 6px; left: 6px; border-width: 2px 0 0 2px; }
     .avatar .corner.br { bottom: 6px; right: 6px; border-width: 0 2px 2px 0; }
+
+    /* ── CONTROL PLANE (hero) ──────────────────────────────────── */
+    .cp {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 22px;
+      align-items: stretch;
+    }
+
+    /* terminal */
+    .cp-term {
+      display: flex;
+      flex-direction: column;
+      min-height: 420px;
+      background: rgba(8, 12, 20, 0.82);
+      border: 1px solid var(--border-hi);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 30px 80px -40px rgba(0,0,0,0.9), 0 0 0 1px rgba(34,211,238,0.04);
+      backdrop-filter: blur(6px);
+    }
+    .cp-bar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 11px 14px;
+      background: rgba(255,255,255,0.025);
+      border-bottom: 1px solid var(--border);
+      font-family: var(--mono); font-size: 12px;
+    }
+    .cp-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+    .cp-dot.r { background: #ff5f57; }
+    .cp-dot.y { background: #febc2e; }
+    .cp-dot.g { background: #28c840; }
+    .cp-bar-title { color: var(--muted); margin-left: 8px; }
+    .cp-bar-region {
+      margin-left: auto; color: var(--mint);
+      letter-spacing: 0.08em; font-size: 11px;
+      display: inline-flex; align-items: center; gap: 7px;
+    }
+    .cp-bar-region::before {
+      content: ''; width: 7px; height: 7px; border-radius: 50%;
+      background: var(--mint); box-shadow: 0 0 7px var(--mint);
+      animation: pulse 2s infinite;
+    }
+    .cp-body {
+      flex: 1;
+      padding: 18px 18px 6px;
+      font-family: var(--mono);
+      font-size: 13.5px;
+      line-height: 1.7;
+      color: var(--text-soft);
+      overflow-y: auto;
+      max-height: 60vh;
+    }
+    .cp-body::-webkit-scrollbar { width: 8px; }
+    .cp-body::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 4px; }
+    .cp-line { white-space: pre-wrap; word-break: break-word; }
+    .cp-line .ok    { color: var(--mint); }
+    .cp-line .warn  { color: var(--amber); }
+    .cp-line .key   { color: var(--cyan); }
+    .cp-line .dim   { color: var(--muted); }
+    .cp-line .name  { color: var(--text); font-weight: 700; }
+    .cp-line a      { color: var(--cyan); text-decoration: none; border-bottom: 1px solid rgba(34,211,238,0.3); }
+    .cp-line a:hover { border-color: var(--cyan); }
+    .cp-cmd-echo { color: var(--text); }
+    .cp-ps  { color: var(--mint); }
+    .cp-path { color: var(--cyan); }
+    .cp-sep { color: var(--muted); margin: 0 2px; }
+
+    .cp-prompt {
+      display: flex; align-items: center; flex-wrap: wrap;
+      gap: 0 2px;
+      padding: 4px 18px 18px;
+      font-family: var(--mono); font-size: 13.5px;
+    }
+    .cp-input {
+      flex: 1; min-width: 60px;
+      background: none; border: none; outline: none;
+      color: var(--text);
+      font-family: var(--mono); font-size: 13.5px;
+      caret-color: var(--cyan);
+      padding: 0; margin-left: 6px;
+    }
+
+    /* operator badge */
+    .cp-badge {
+      display: flex; flex-direction: column;
+      gap: 14px;
+      background: rgba(8, 12, 20, 0.82);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      backdrop-filter: blur(6px);
+    }
+    .cp-badge-top {
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      color: var(--muted);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .cp-badge-top::after {
+      content: 'LIVE'; color: var(--mint); letter-spacing: 0.18em;
+    }
+    .cp-badge .avatar {
+      width: 100%; height: auto; aspect-ratio: 1 / 1;
+      transform: none;
+      border-radius: 8px;
+    }
+    .cp-badge-meta {
+      display: grid; gap: 7px;
+      font-family: var(--mono); font-size: 11px;
+    }
+    .cp-badge-meta > div {
+      display: flex; justify-content: space-between; gap: 10px;
+      border-bottom: 1px dashed var(--border);
+      padding-bottom: 6px;
+    }
+    .cp-badge-meta span { color: var(--muted); letter-spacing: 0.08em; }
+    .cp-badge-meta b { color: var(--text); font-weight: 500; text-align: right; }
+    .cp-badge-meta b.ok { color: var(--mint); }
+    .cp-slo {
+      font-family: var(--mono); font-size: 11px;
+      color: var(--text-soft);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .cp-slo .spark { color: var(--cyan); letter-spacing: 1px; }
+    .cp-tag {
+      margin-top: 26px;
+      text-align: left;
+    }
 
     /* ── WHAT I DO ─────────────────────────────────────────────── */
     .grid-3 {
@@ -582,15 +733,23 @@
     .reveal.in { opacity: 1; transform: none; }
 
     /* ── RESPONSIVE ────────────────────────────────────────────── */
+    @media (max-width: 880px) {
+      .cp { grid-template-columns: 1fr; }
+      .cp-badge { order: -1; }
+      .cp-badge .avatar { max-width: 240px; margin: 0 auto; }
+      .cp-badge-meta { max-width: 320px; margin: 0 auto; width: 100%; }
+      .cp-slo { justify-content: center; }
+    }
     @media (max-width: 820px) {
       .grid-3 { grid-template-columns: repeat(2, 1fr); }
       .links { grid-template-columns: repeat(2, 1fr); }
     }
     @media (max-width: 560px) {
       body { font-size: 15px; }
-      .hero { min-height: auto; padding: 110px 0 56px; }
-      .hero-grid { grid-template-columns: 1fr; gap: 28px; }
-      .avatar { width: 220px; height: 220px; order: -1; }
+      .hero { min-height: auto; padding: 96px 0 56px; }
+      .cp-term { min-height: 360px; }
+      .cp-body { font-size: 12.5px; }
+      .cp-prompt, .cp-input { font-size: 12.5px; }
       .grid-3 { grid-template-columns: 1fr; }
       .sec-head { margin: 72px 0 22px; }
       .pl-row { grid-template-columns: 18px 1fr; row-gap: 6px; }
@@ -607,47 +766,56 @@
         transition-duration: 0.001ms !important;
       }
       .reveal { opacity: 1; transform: none; }
-      #constellation { display: none; }
+      .fx-aurora { animation: none; }
     }
   </style>
 </head>
 <body>
 
-<canvas id="constellation" aria-hidden="true"></canvas>
+<div class="fx-aurora" aria-hidden="true"></div>
+<canvas id="starfield" aria-hidden="true"></canvas>
 
 <main class="wrap">
 
-  <!-- ── HERO ─────────────────────────────────────────────── -->
+  <!-- ── HERO · CONTROL PLANE ─────────────────────────────── -->
   <section class="hero">
-    <span class="status-pill">
-      <span class="dot"></span>
-      available for opportunities — Anambra, Nigeria
-    </span>
-
-    <div class="hero-grid">
-      <div>
-        <p class="hero-prompt"><span class="c">$</span> whoami</p>
-        <h1 class="hero-name">
-          <span class="l1">donald</span>
-          <span class="l2">raph.</span>
-        </h1>
-        <p class="hero-role">Platform &amp; Reliability Engineering</p>
-        <p class="hero-lede">
-          I build infrastructure from Anambra, in southeast Nigeria — to
-          represent the people it overlooked. I break infrastructure on purpose
-          so it never breaks by accident.
-        </p>
-        <p class="hero-signoff">from nothing, to everything.</p>
+    <div class="cp">
+      <div class="cp-term" id="term">
+        <div class="cp-bar">
+          <span class="cp-dot r"></span>
+          <span class="cp-dot y"></span>
+          <span class="cp-dot g"></span>
+          <span class="cp-bar-title">donald@control-plane: ~</span>
+          <span class="cp-bar-region">af-anambra-1</span>
+        </div>
+        <div class="cp-body" id="termBody" aria-live="polite"></div>
+        <div class="cp-prompt" id="termPromptLine" hidden>
+          <span class="cp-ps">donald@control-plane</span><span class="cp-sep">:</span><span class="cp-path">~</span><span class="cp-sep">$</span>
+          <input id="termInput" class="cp-input" autocomplete="off" autocapitalize="off"
+                 autocorrect="off" spellcheck="false" aria-label="terminal command input" />
+        </div>
       </div>
 
-      <figure class="avatar">
-        <span class="mono-fallback" aria-hidden="true">DR</span>
-        <img src="photo.jpeg" width="360" height="360" alt="Donald Raph"
-             decoding="async" onload="this.classList.add('loaded')" />
-        <span class="corner tl"></span>
-        <span class="corner br"></span>
-      </figure>
+      <aside class="cp-badge">
+        <div class="cp-badge-top">Operator ID</div>
+        <figure class="avatar">
+          <span class="mono-fallback" aria-hidden="true">DR</span>
+          <img src="photo.jpeg" width="360" height="360" alt="Donald Raph"
+               decoding="async" onload="this.classList.add('loaded')" />
+          <span class="corner tl"></span>
+          <span class="corner br"></span>
+        </figure>
+        <div class="cp-badge-meta">
+          <div><span>NAME</span><b>Donald Raph</b></div>
+          <div><span>ROLE</span><b>Platform / Reliability</b></div>
+          <div><span>BASE</span><b>Anambra, NG</b></div>
+          <div><span>STATUS</span><b class="ok">● available</b></div>
+        </div>
+        <div class="cp-slo">SLO 99.95% <span class="spark">▁▂▃▅▇▆▅▇</span> 412d</div>
+      </aside>
     </div>
+
+    <p class="hero-signoff cp-tag">from nothing, to everything.</p>
   </section>
 
   <!-- ── 01 WHAT I DO ─────────────────────────────────────── -->
@@ -916,58 +1084,227 @@
   }, { threshold: 0.12 });
   document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
 
-  // ── CONSTELLATION (desktop, motion-friendly only) ──────────
+  // ── STARFIELD + SHOOTING STARS (mobile included) ───────────
   (function () {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const coarse = window.matchMedia('(pointer: coarse)').matches;
-    if (reduce || coarse || window.innerWidth < 760) return;
+    if (reduce) return;
 
-    const cv = document.getElementById('constellation');
+    const cv = document.getElementById('starfield');
     const ctx = cv.getContext('2d');
-    let w, h, nodes, raf;
-    const COUNT = 42, LINK = 130;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let w, h, stars, raf, meteors = [], nextMeteor = 0;
 
     function size() {
-      w = cv.width = window.innerWidth;
-      h = cv.height = window.innerHeight;
+      w = window.innerWidth; h = window.innerHeight;
+      cv.width = w * dpr; cv.height = h * dpr;
+      cv.style.width = w + 'px'; cv.style.height = h + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      seed();
     }
     function seed() {
-      nodes = Array.from({ length: COUNT }, () => ({
-        x: Math.random() * w, y: Math.random() * h,
-        vx: (Math.random() - 0.5) * 0.25, vy: (Math.random() - 0.5) * 0.25
+      // density scales with viewport; lighter on phones
+      const count = Math.round((w * h) / 9000);
+      stars = Array.from({ length: count }, () => ({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        r: Math.random() * 1.3 + 0.25,
+        base: Math.random() * 0.5 + 0.2,
+        tw: Math.random() * Math.PI * 2,
+        sp: Math.random() * 0.02 + 0.005
       }));
     }
-    function frame() {
+    function spawnMeteor() {
+      const fromLeft = Math.random() < 0.5;
+      const startX = fromLeft ? Math.random() * w * 0.4 : w * 0.6 + Math.random() * w * 0.4;
+      meteors.push({
+        x: startX, y: -20 - Math.random() * 60,
+        len: 140 + Math.random() * 160,
+        speed: 7 + Math.random() * 6,
+        angle: (Math.random() * 0.18 + 0.32) * Math.PI, // steep diagonal
+        life: 1,
+        hue: Math.random() < 0.5 ? '34,211,238' : '52,211,153'
+      });
+    }
+    function frame(t) {
       ctx.clearRect(0, 0, w, h);
-      for (const n of nodes) {
-        n.x += n.vx; n.y += n.vy;
-        if (n.x < 0 || n.x > w) n.vx *= -1;
-        if (n.y < 0 || n.y > h) n.vy *= -1;
+      // twinkling stars
+      for (const s of stars) {
+        s.tw += s.sp;
+        const a = s.base + Math.sin(s.tw) * 0.25;
+        ctx.globalAlpha = Math.max(0, a);
+        ctx.fillStyle = '#cfe3ff';
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
       }
-      for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-          const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y;
-          const d = Math.hypot(dx, dy);
-          if (d < LINK) {
-            ctx.strokeStyle = 'rgba(34,211,238,' + (0.12 * (1 - d / LINK)) + ')';
-            ctx.lineWidth = 1;
-            ctx.beginPath(); ctx.moveTo(nodes[i].x, nodes[i].y); ctx.lineTo(nodes[j].x, nodes[j].y); ctx.stroke();
-          }
-        }
-      }
-      for (const n of nodes) {
-        ctx.fillStyle = 'rgba(125,138,163,0.55)';
-        ctx.beginPath(); ctx.arc(n.x, n.y, 1.4, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      // shooting stars
+      if (t > nextMeteor) { spawnMeteor(); nextMeteor = t + 1600 + Math.random() * 3200; }
+      for (let i = meteors.length - 1; i >= 0; i--) {
+        const m = meteors[i];
+        const dx = Math.cos(m.angle) * m.speed;
+        const dy = Math.sin(m.angle) * m.speed;
+        m.x += dx; m.y += dy;
+        const tailX = m.x - Math.cos(m.angle) * m.len;
+        const tailY = m.y - Math.sin(m.angle) * m.len;
+        const grad = ctx.createLinearGradient(m.x, m.y, tailX, tailY);
+        grad.addColorStop(0, 'rgba(' + m.hue + ',0.9)');
+        grad.addColorStop(1, 'rgba(' + m.hue + ',0)');
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 2; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(m.x, m.y); ctx.lineTo(tailX, tailY); ctx.stroke();
+        // bright head
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.beginPath(); ctx.arc(m.x, m.y, 1.6, 0, Math.PI * 2); ctx.fill();
+        if (m.x > w + m.len || m.y > h + m.len) meteors.splice(i, 1);
       }
       raf = requestAnimationFrame(frame);
     }
-    function start() { cancelAnimationFrame(raf); frame(); }
+    function start() { cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); }
 
-    size(); seed(); start();
-    window.addEventListener('resize', () => { size(); seed(); });
+    size(); start();
+    let rt;
+    window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(size, 150); });
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) cancelAnimationFrame(raf); else start();
     });
+  })();
+
+  // ── INTERACTIVE TERMINAL (control plane) ───────────────────
+  (function () {
+    const body   = document.getElementById('termBody');
+    const promptLine = document.getElementById('termPromptLine');
+    const input  = document.getElementById('termInput');
+    if (!body || !input) return;
+
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const esc = (s) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+    function print(html, cls) {
+      const div = document.createElement('div');
+      div.className = 'cp-line' + (cls ? ' ' + cls : '');
+      div.innerHTML = html;
+      body.appendChild(div);
+      body.scrollTop = body.scrollHeight;
+      return div;
+    }
+    function echoCmd(cmd) {
+      print('<span class="cp-ps">donald@control-plane</span><span class="cp-sep">:</span>' +
+            '<span class="cp-path">~</span><span class="cp-sep">$</span> ' +
+            '<span class="cp-cmd-echo">' + esc(cmd) + '</span>');
+    }
+
+    const PROJECTS = [
+      ['NEXUS', 'incident-scenario trainer on a live EKS cluster'],
+      ['ARES', 'AI SRE platform — ops view over 11 microservices'],
+      ['PROMETHEUS', 'autonomous trading bot on Polymarket CLOB'],
+      ['Day Zero', 'home base for southeast Nigeria builders'],
+      ["Raph's Orbit", 'social-media radar on EC2 → Telegram']
+    ];
+    const CERTS = [
+      ['GitHub Copilot', 'certified'],
+      ['GitHub Actions', 'in progress'],
+      ['AWS Cloud Practitioner', 'queued'],
+      ['CKA · CKS · CKAD', 'on the way → Kubestronaut']
+    ];
+
+    const COMMANDS = {
+      help() {
+        return ['available commands:',
+          '  <span class="key">whoami</span>     who I am',
+          '  <span class="key">projects</span>   what I\'ve built  (alias: ls)',
+          '  <span class="key">certs</span>      certification pipeline',
+          '  <span class="key">stack</span>      tools I work with',
+          '  <span class="key">contact</span>    where to find me  (alias: social)',
+          '  <span class="key">mission</span>    jump to Mission Control',
+          '  <span class="key">clear</span>      clear the screen'].join('\n');
+      },
+      whoami() {
+        return ['<span class="name">Donald Raph</span> — Platform &amp; Reliability Engineering.',
+          'I build infrastructure from <span class="key">Anambra</span>, southeast Nigeria —',
+          'to represent the people it overlooked.',
+          'I break infrastructure on purpose so it never breaks by accident.',
+          '<span class="dim">// from nothing, to everything.</span>'].join('\n');
+      },
+      projects() {
+        return PROJECTS.map(p => '  <span class="ok">▸</span> <span class="name">' + p[0] +
+          '</span> <span class="dim">— ' + p[1] + '</span>').join('\n') +
+          '\n<span class="dim">repo → </span><a href="https://github.com/donaldraph" target="_blank" rel="noopener">github.com/donaldraph</a>';
+      },
+      certs() {
+        return CERTS.map(c => {
+          const cls = c[1] === 'certified' ? 'ok' : (c[1].indexOf('progress') > -1 || c[1].indexOf('way') > -1 ? 'warn' : 'dim');
+          return '  <span class="' + cls + '">●</span> ' + c[0] + ' <span class="dim">— ' + c[1] + '</span>';
+        }).join('\n');
+      },
+      stack() {
+        return 'Kubernetes · AWS · Terraform · Docker · Python · observability · LLM/MCP';
+      },
+      contact() {
+        return ['<a href="https://github.com/donaldraph" target="_blank" rel="noopener">github</a>   ' +
+          '<a href="https://linkedin.com/in/donaldraph" target="_blank" rel="noopener">linkedin</a>   ' +
+          '<a href="https://dev.to/donaldraph" target="_blank" rel="noopener">dev.to</a>   ' +
+          '<a href="https://youtube.com/@donaldraph" target="_blank" rel="noopener">youtube</a>'].join('\n');
+      },
+      mission() {
+        const gate = document.getElementById('mcGate');
+        if (gate) gate.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return '<span class="warn">↗</span> opening Mission Control…';
+      },
+      clear() { body.innerHTML = ''; return null; }
+    };
+    COMMANDS.ls = COMMANDS.projects;
+    COMMANDS.social = COMMANDS.contact;
+    COMMANDS.skills = COMMANDS.stack;
+
+    function run(raw) {
+      const cmd = raw.trim().toLowerCase();
+      if (!cmd) return;
+      echoCmd(raw.trim());
+      if (cmd === 'sudo' || cmd.startsWith('sudo ')) { print('<span class="warn">nice try.</span> you already have root here.', 'warn'); return; }
+      const fn = COMMANDS[cmd] || COMMANDS[cmd.split(' ')[0]];
+      if (fn) { const out = fn(); if (out !== null && out !== undefined) print(out); }
+      else print('command not found: <span class="warn">' + esc(cmd) + '</span> — type <span class="key">help</span>');
+    }
+
+    // command history
+    const hist = []; let hi = -1;
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const v = input.value; if (v.trim()) { hist.push(v); hi = hist.length; }
+        run(v); input.value = '';
+      } else if (e.key === 'ArrowUp') {
+        if (hi > 0) { hi--; input.value = hist[hi]; e.preventDefault(); }
+      } else if (e.key === 'ArrowDown') {
+        if (hi < hist.length - 1) { hi++; input.value = hist[hi]; }
+        else { hi = hist.length; input.value = ''; }
+      }
+    });
+    // tap anywhere on terminal focuses input
+    document.getElementById('term').addEventListener('click', (e) => {
+      if (e.target.tagName !== 'A') input.focus();
+    });
+
+    // ── boot sequence ──
+    const boot = [
+      ['<span class="dim">booting control-plane…</span>', 90],
+      ['[<span class="ok">OK</span>] region <span class="key">af-anambra-1</span> reachable', 70],
+      ['[<span class="ok">OK</span>] identity verified — <span class="name">donald raph</span>', 70],
+      ['[<span class="ok">OK</span>] 5 services nominal · SLO <span class="ok">99.95%</span>', 70],
+      ['', 40],
+      ['Welcome, operator. Type <span class="key">help</span> to get started.', 0]
+    ];
+    let bi = 0;
+    function bootStep() {
+      if (bi >= boot.length) {
+        promptLine.hidden = false;
+        if (!('ontouchstart' in window)) input.focus();
+        return;
+      }
+      print(boot[bi][0]);
+      const delay = reduce ? 0 : boot[bi][1];
+      bi++;
+      setTimeout(bootStep, delay + (reduce ? 0 : 90));
+    }
+    bootStep();
   })();
 </script>
 </body>
