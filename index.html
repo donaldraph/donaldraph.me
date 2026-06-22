@@ -127,25 +127,37 @@
     /* section header / numbered device */
     .sec-head {
       display: flex;
-      align-items: baseline;
-      gap: 16px;
-      margin: 92px 0 28px;
+      align-items: center;
+      gap: 13px;
+      margin: 92px 0 26px;
+    }
+    .sec-head::before {
+      content: '~$';
+      font-family: var(--mono);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--mint);
+      flex-shrink: 0;
     }
     .sec-head h2 {
       font-family: var(--display);
       font-weight: 700;
-      font-size: clamp(22px, 4vw, 30px);
+      font-size: clamp(20px, 4vw, 28px);
       letter-spacing: -0.02em;
       color: var(--text);
       white-space: nowrap;
     }
-    .sec-head .rule { flex: 1; height: 1px; background: var(--border); }
+    .sec-head .rule {
+      flex: 1; height: 1px;
+      background: linear-gradient(90deg, var(--border-hi), transparent);
+    }
     .sec-head .num {
       font-family: var(--mono);
-      font-size: 13px;
-      color: var(--cyan);
+      font-size: 12px;
+      color: var(--muted);
       letter-spacing: 0.1em;
     }
+    .sec-head .num::before { content: '// '; color: var(--cyan); }
 
     /* ── HERO ──────────────────────────────────────────────────── */
     .hero {
@@ -445,13 +457,15 @@
 
     .card {
       position: relative;
-      background: var(--panel);
+      background: rgba(11, 16, 27, 0.66);
+      backdrop-filter: blur(5px);
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 22px 20px;
       overflow: hidden;
-      transition: border-color 0.2s ease, transform 0.2s ease;
+      transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
     }
+    .card:hover { box-shadow: 0 20px 50px -30px rgba(0,0,0,0.8); }
     .card::before {
       content: '';
       position: absolute; top: 0; left: 0; right: 0; height: 2px;
@@ -531,8 +545,22 @@
       list-style: none;
       border: 1px solid var(--border);
       border-radius: 8px;
-      background: var(--panel);
+      background: rgba(11, 16, 27, 0.66);
+      backdrop-filter: blur(5px);
       overflow: hidden;
+    }
+    /* console header bar on the pipeline */
+    .pipeline::before {
+      content: 'STATUS · certification pipeline';
+      display: block;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 11px 20px;
+      background: rgba(255,255,255,0.025);
+      border-bottom: 1px solid var(--border);
     }
     .pl-row {
       display: grid;
@@ -578,7 +606,8 @@
       border: 1px solid var(--border);
       border-left: 3px solid var(--amber);
       border-radius: 8px;
-      background: linear-gradient(180deg, rgba(245,158,11,0.05), transparent);
+      background: linear-gradient(180deg, rgba(245,158,11,0.06), rgba(11,16,27,0.66));
+      backdrop-filter: blur(5px);
       padding: 32px 30px;
     }
     .dayzero .kicker { color: var(--amber); margin-bottom: 14px; display: block; }
@@ -598,7 +627,8 @@
       border: 1px solid var(--border);
       border-left: 3px solid var(--cyan);
       border-radius: 8px;
-      background: var(--panel);
+      background: rgba(11, 16, 27, 0.6);
+      backdrop-filter: blur(4px);
       padding: 20px 24px;
       font-size: 16px;
       line-height: 1.6;
@@ -618,7 +648,8 @@
       display: flex; flex-direction: column; align-items: center;
       justify-content: center; gap: 11px;
       padding: 26px 14px;
-      background: var(--panel);
+      background: rgba(11, 16, 27, 0.6);
+      backdrop-filter: blur(4px);
       border: 1px solid var(--border);
       border-radius: 8px;
       text-decoration: none;
@@ -637,7 +668,8 @@
 
     /* ── MISSION CONTROL GATE ──────────────────────────────────── */
     .mc-lock {
-      background: var(--panel);
+      background: rgba(11, 16, 27, 0.7);
+      backdrop-filter: blur(6px);
       border: 1px solid var(--border);
       border-left: 3px solid var(--mint);
       border-radius: 8px;
