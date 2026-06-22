@@ -165,8 +165,9 @@
 
     .hero-grid {
       display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 40px;
+      grid-template-columns: minmax(0, 600px) auto;
+      justify-content: center;
+      gap: 64px;
       align-items: center;
     }
 
@@ -213,7 +214,7 @@
     }
 
     .avatar {
-      width: 320px; height: 320px;
+      width: 360px; height: 360px;
       position: relative;
       flex-shrink: 0;
       border: 1px solid var(--border-hi);
@@ -601,7 +602,7 @@
 
       <figure class="avatar">
         <span class="mono-fallback" aria-hidden="true">DR</span>
-        <img src="photo.jpeg" width="320" height="320" alt="Donald Raph"
+        <img src="photo.jpeg" width="360" height="360" alt="Donald Raph"
              decoding="async" onload="this.classList.add('loaded')" />
         <span class="corner tl"></span>
         <span class="corner br"></span>
