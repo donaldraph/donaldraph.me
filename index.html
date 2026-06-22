@@ -263,34 +263,53 @@
       object-fit: cover;
       display: block;
       opacity: 0;
+      filter: brightness(1.12) contrast(1.05) saturate(1.08);
       transition: opacity 0.5s ease;
     }
     .avatar img.loaded { opacity: 1; }
-    /* drifting scanlines — faint monitor/CRT texture */
+    /* CRT scanlines — visible monitor texture */
     .avatar::before {
       content: "";
       position: absolute; inset: 0; z-index: 2;
       pointer-events: none;
       background: repeating-linear-gradient(
         0deg,
-        rgba(0, 0, 0, 0.12) 0px,
-        rgba(0, 0, 0, 0.12) 1px,
+        rgba(0, 0, 0, 0.2) 0px,
+        rgba(0, 0, 0, 0.2) 1px,
         transparent 1px,
-        transparent 3px
+        transparent 4px
       );
-      mix-blend-mode: soft-light;
-      opacity: 0.5;
-      animation: scan-drift 6s linear infinite;
+      opacity: 0.4;
+      animation: scan-drift 5s linear infinite;
     }
     /* film grain — masks the over-smooth synthetic look */
     .avatar::after {
       content: "";
       position: absolute; inset: -50%; z-index: 2;
       pointer-events: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
       mix-blend-mode: overlay;
-      opacity: 0.16;
-      animation: grain-shift 0.6s steps(2) infinite;
+      opacity: 0.26;
+      animation: grain-shift 0.5s steps(2) infinite;
+    }
+    /* scan-sweep — hologram bar travelling down the feed */
+    .avatar .scanbar {
+      position: absolute; left: 0; right: 0; top: 0;
+      height: 30%; z-index: 2; pointer-events: none;
+      background: linear-gradient(180deg,
+        transparent,
+        rgba(34, 211, 238, 0.05) 35%,
+        rgba(34, 211, 238, 0.22) 50%,
+        rgba(34, 211, 238, 0.05) 65%,
+        transparent);
+      mix-blend-mode: screen;
+      animation: scan-sweep 4.2s linear infinite;
+    }
+    @keyframes scan-sweep {
+      0%   { transform: translateY(-110%); opacity: 0; }
+      12%  { opacity: 1; }
+      88%  { opacity: 1; }
+      100% { transform: translateY(360%); opacity: 0; }
     }
     @keyframes scan-drift {
       from { transform: translateY(0); }
@@ -304,7 +323,8 @@
       100% { transform: translate(2%, 4%); }
     }
     @media (prefers-reduced-motion: reduce) {
-      .avatar::before, .avatar::after { animation: none; }
+      .avatar::before, .avatar::after, .avatar .scanbar { animation: none; }
+      .avatar .scanbar { display: none; }
     }
     .avatar .mono-fallback {
       position: absolute; inset: 0;
@@ -834,6 +854,7 @@
           <span class="mono-fallback" aria-hidden="true">DR</span>
           <img src="photo.jpeg" width="360" height="360" alt="Donald Raph"
                decoding="async" onload="this.classList.add('loaded')" />
+          <span class="scanbar" aria-hidden="true"></span>
           <span class="corner tl"></span>
           <span class="corner br"></span>
         </figure>
