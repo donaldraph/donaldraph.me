@@ -165,9 +165,8 @@
 
     .hero-grid {
       display: grid;
-      grid-template-columns: minmax(0, 600px) auto;
-      justify-content: center;
-      gap: 64px;
+      grid-template-columns: 1fr auto;
+      gap: 40px;
       align-items: center;
     }
 
@@ -215,6 +214,7 @@
 
     .avatar {
       width: 360px; height: 360px;
+      transform: translateY(-24px);
       position: relative;
       flex-shrink: 0;
       border: 1px solid var(--border-hi);
